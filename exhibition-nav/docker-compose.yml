@@ -1,0 +1,169 @@
+# docker-compose.yml
+# ---------------------------------------------------------
+# 這個檔案定義了整個系統要跑哪些「容器」(container)，
+# 每個容器可以想成一台獨立的小型虛擬電腦，各自跑一個服務。
+# `docker compose up` 會照這份檔案，一次把所有容器建起來並互相連好網路。
+# ---------------------------------------------------------
+
+# version 欄位在新版 Docker Compose 已經不需要了(會被忽略甚至警告)，
+# 所以這裡直接拿掉，避免執行時跳出 "the attribute `version` is obsolete" 的警告。
+
+services:
+  # =========================================================
+  # 1. PostGIS 資料庫（PostgreSQL + 空間擴充套件）
+  # =========================================================
+  db:
+    # image: 直接使用官方現成的映像檔(image)，不用自己寫 Dockerfile。
+    # 這裡把版本號「鎖死」在 15-3.3，不要用 latest。
+    # 原因：latest 在你電腦跟同事電腦、或半年後的你重新 clone 專案時，
+    # 抓到的版本可能不一樣，行為就可能不一致，難以除錯。
+    image: postgis/postgis:15-3.3
+
+    # container_name: 給這個容器取一個固定名字，方便你用
+    # `docker logs bmc_gis_db` 這種指令查看記錄。
+    container_name: bmc_gis_db
+
+    # environment: 容器啟動時會讀到的環境變數。
+    # 這裡改用 ${...} 語法從 .env 檔案讀值進來，
+    # 而不是像原本一樣把帳號密碼直接寫死在這個檔案裡。
+    # 好處：.env 不會進 Git 版控，密碼不會外流；
+    #       換環境（你的電腦、同事電腦、雲端主機）只要換一份 .env 就好，
+    #       compose 檔案本身完全不用改。
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+
+    # ports: 把「容器內的 port」對應到「你電腦(host)的 port」。
+    # 格式是 "host的port:容器內的port"。
+    # 這裡是給你本機用 DBeaver / pgAdmin 之類的工具連進去除錯用；
+    # 如果不需要從外部直接連資料庫，其實可以整段拿掉，
+    # 讓 backend 單純透過 docker 內部網路連線，更安全。
+    ports:
+      - "${DB_PORT:-5432}:5432"
+      # ${DB_PORT:-5432} 的意思是：如果 .env 裡有設定 DB_PORT 就用它，
+      # 沒設定的話就用預設值 5432。這是 compose 語法的小技巧。
+
+    # volumes: 把資料「持久化」，不然容器一刪除資料就不見了。
+    volumes:
+      # 具名 volume，由 Docker 自己管理實際存放位置(在 Docker 內部)，
+      # 不綁定到你電腦上特定的路徑。這是存放「資料庫實際資料」的正確做法，
+      # 因為換到別台機器、別的作業系統都不會因為路徑不同而壞掉。
+      - db_data:/var/lib/postgresql/data
+
+      # bind mount：把你專案資料夾裡的 SQL 腳本掛進容器的
+      # /docker-entrypoint-initdb.d/ 目錄。
+      # 這是 postgres 官方映像的「魔法目錄」：容器第一次啟動、
+      # 資料庫還是空的時候，會自動依檔名順序執行裡面的 .sql 檔，
+      # 用來自動建立 extension（postgis、pgrouting）、資料表等等。
+      # 這種「你會編輯的原始檔」用 bind mount 是對的，跟上面資料庫資料本身要分開處理。
+      - ./database/init-scripts:/docker-entrypoint-initdb.d
+
+    # healthcheck: 讓 Docker 定期檢查這個容器「是不是真的準備好了」，
+    # 而不是「容器有啟動」就當作沒問題。
+    # PostgreSQL 容器啟動後，裡面還要花幾秒初始化資料庫，
+    # 這段時間如果 backend 就急著連線，會連線失敗。
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s      # 每 5 秒檢查一次
+      timeout: 5s       # 每次檢查最多等 5 秒
+      retries: 10       # 連續失敗 10 次才判定為不健康
+
+    restart: always     # 容器意外停掉時自動重啟(例如電腦重開機後)
+
+    # networks: 指定這個容器要加入哪個自訂網路(定義在檔案最下面)。
+    networks:
+      - bmc_network
+
+  # =========================================================
+  # 2. FastAPI 後端 (AI 對話、GIS 路徑計算、QR Code、資料庫存取)
+  # =========================================================
+  backend:
+    # build: 不是用現成 image，而是照 ./backend 資料夾裡的 Dockerfile 自己建。
+    build:
+      context: ./backend        # Dockerfile 在哪個資料夾
+      dockerfile: Dockerfile    # 檔名(預設就是這個，寫出來比較清楚)
+
+    container_name: bmc_backend_api
+
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+
+    volumes:
+      # 開發階段把本機程式碼掛進容器，這樣改 Python 檔案不用重新 build image，
+      # 搭配 FastAPI 的 --reload 參數可以做到存檔即生效。
+      - ./backend:/app
+
+    environment:
+      # DATABASE_URL 這裡故意用 db（服務名稱）當主機名稱，不是 localhost。
+      # 因為在 docker compose 建立的網路裡，服務之間可以直接用彼此的
+      # service name 互相連線，Docker 內建的 DNS 會自動解析。
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      # API 金鑰一樣從 .env 讀進來，絕對不要寫死在這個檔案或程式碼裡。
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+
+    depends_on:
+      # 原本的寫法只會等 db 容器「啟動」，不會等它「真的可以接受連線」。
+      # 加上 condition: service_healthy，
+      # 就會等上面 db 的 healthcheck 通過之後才啟動 backend。
+      db:
+        condition: service_healthy
+
+    restart: always
+
+    networks:
+      - bmc_network
+
+  # =========================================================
+  # 3. Next.js 前端 (遊客網頁、導覽大面板、管理後台)
+  # =========================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+
+    container_name: bmc_nextjs_frontend
+
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+
+    volumes:
+      - ./frontend:/app
+      # 這行是刻意「蓋掉」上面那行掛載中的 node_modules 子目錄，
+      # 讓容器內部自己 npm install 出來的 node_modules 不會被你本機的
+      # (可能是不同作業系統/架構下裝的) node_modules 蓋過去。
+      # 這個寫法是對的，保留。
+      - /app/node_modules
+
+    environment:
+      # 注意：這裡是 http://localhost:8000，是給「使用者瀏覽器」呼叫的，
+      # 不是給容器之間互連用的，所以不能寫成 http://backend:8000，
+      # 因為使用者的瀏覽器並不在 docker 網路裡面，不認得 backend 這個名字。
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+
+    depends_on:
+      - backend
+      # 這裡沒有用 service_healthy，因為前端沒有強烈需要「backend 完全就緒」
+      # 才能啟動，Next.js 啟動很快，即使 backend 慢一點通常也不影響。
+
+    restart: always
+
+    networks:
+      - bmc_network
+
+# =========================================================
+# volumes: 宣告上面用到的具名 volume
+# =========================================================
+volumes:
+  db_data:
+    # 不特別指定 driver，用 Docker 預設的 local driver 即可，
+    # 這樣在任何有安裝 Docker 的環境都能正常運作，不受你電腦路徑影響。
+
+# =========================================================
+# networks: 宣告一個自訂網路，讓三個服務可以用彼此的名字互相溝通
+# =========================================================
+networks:
+  bmc_network:
+    driver: bridge
+    # bridge 是 Docker 預設也是最常見的網路模式，
+    # 適合這種「同一台機器上，多個容器互相溝通」的情境。

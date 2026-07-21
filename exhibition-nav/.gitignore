@@ -1,0 +1,15 @@
+# 環境變數檔案：內含真實密碼/金鑰，絕對不要進版控
+.env
+
+# Python
+backend/__pycache__/
+backend/*.pyc
+backend/.venv/
+
+# Node.js
+frontend/node_modules/
+frontend/.next/
+
+# 作業系統/編輯器產生的雜項檔案
+.DS_Store
+.vscode/
