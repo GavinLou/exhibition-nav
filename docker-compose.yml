@@ -13,11 +13,10 @@ services:
   # 1. PostGIS 資料庫（PostgreSQL + 空間擴充套件）
   # =========================================================
   db:
-    # image: 直接使用官方現成的映像檔(image)，不用自己寫 Dockerfile。
-    # 這裡把版本號「鎖死」在 15-3.3，不要用 latest。
-    # 原因：latest 在你電腦跟同事電腦、或半年後的你重新 clone 專案時，
-    # 抓到的版本可能不一樣，行為就可能不一致，難以除錯。
-    image: postgis/postgis:15-3.3
+    # image: 使用包含 PostGIS + pgRouting 的映像檔。
+    # pgrouting/pgrouting 基於 postgis/postgis，額外預裝了 pgRouting 擴充套件。
+    # 版本號鎖死避免不同環境抓到不同版本。
+    image: pgrouting/pgrouting:15-3.5-3.7
 
     # container_name: 給這個容器取一個固定名字，方便你用
     # `docker logs bmc_gis_db` 這種指令查看記錄。
@@ -151,6 +150,48 @@ services:
     networks:
       - bmc_network
 
+  # =========================================================
+  # 4. pgAdmin (網頁版資料庫管理介面，開瀏覽器就能看資料庫內容)
+  # =========================================================
+  pgadmin:
+    # 官方映像，同樣鎖定版本號，不用latest
+    image: dpage/pgadmin4:8.14
+
+    container_name: bmc_pgadmin
+
+    environment:
+      # pgAdmin登入畫面要用的帳號密碼，跟資料庫本身的帳密是兩回事，
+      # 這是「登入這個管理網站」用的帳密，一樣從.env讀，不要寫死。
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin123}
+      # 這個設定讓pgAdmin不要求你額外設定Master Password，
+      # 開發階段圖方便加這個，正式環境部署到公開網路上不建議這樣設。
+      PGADMIN_CONFIG_SERVER_MODE: "True"
+
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+      # pgAdmin容器內部是用80埠(一般網頁埠)，對應到你電腦的5050，
+      # 所以之後開瀏覽器要打 http://localhost:5050
+
+    volumes:
+      # 具名volume，讓你在pgAdmin網頁上設定好的「連線設定」
+      # 不會因為容器重啟就消失不見。
+      - pgadmin_data:/var/lib/pgadmin
+      # 自動連接資料庫的設定檔
+      - ./database/pgadmin/servers.json:/pgadmin4/servers.json:ro
+      # 密碼檔案，讓 pgAdmin 自動登入資料庫不用手動輸入密碼
+      - ./database/pgadmin/pgpass:/pgpass:ro
+
+    depends_on:
+      db:
+        condition: service_healthy
+        # 一樣要等db健康了才啟動，不然你打開pgAdmin想連線時資料庫可能還沒好。
+
+    restart: always
+
+    networks:
+      - bmc_network
+
 # =========================================================
 # volumes: 宣告上面用到的具名 volume
 # =========================================================
@@ -158,6 +199,7 @@ volumes:
   db_data:
     # 不特別指定 driver，用 Docker 預設的 local driver 即可，
     # 這樣在任何有安裝 Docker 的環境都能正常運作，不受你電腦路徑影響。
+  pgadmin_data:
 
 # =========================================================
 # networks: 宣告一個自訂網路，讓三個服務可以用彼此的名字互相溝通

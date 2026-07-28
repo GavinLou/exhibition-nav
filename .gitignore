@@ -13,3 +13,9 @@ frontend/.next/
 # 作業系統/編輯器產生的雜項檔案
 .DS_Store
 .vscode/
+
+# 排除全域與本地的 AI 插件、快取與對話歷史紀錄
+.claude/5tgb 
+
+# 排除通用 AI 代理下載區與跨平台緩存
+.agents/
