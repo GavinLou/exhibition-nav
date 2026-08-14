@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS "Restaurant" (
 	"id" UUID NOT NULL,
 	-- 關聯到 Base_Location
 	"location_id" UUID NOT NULL,
+	"Attractions_id" UUID NOT NULL,
 	-- 景點是否開放
 	"status" STATUS_TYPE NOT NULL,
 	"image_url" VARCHAR(150),
@@ -125,6 +126,7 @@ CREATE TABLE IF NOT EXISTS "Event" (
 	"image_url" VARCHAR(150),
 	-- 關聯到 Base_Location
 	"location_id" UUID NOT NULL,
+	"Attractions_id" UUID NOT NULL,
 	"status" STATUS_TYPE NOT NULL,
 	"start_date" DATE NOT NULL,
 	"end_date" DATE NOT NULL,
@@ -210,7 +212,7 @@ CREATE TABLE IF NOT EXISTS "Opening_Schedules" (
 
 CREATE TABLE IF NOT EXISTS "Opening_Exceptions" (
 	"id" UUID NOT NULL,
-	"target" TARGET_TYPE(30) NOT NULL,
+	"target" TARGET_TYPE NOT NULL,
 	"target_id" UUID NOT NULL,
 	"exception_date" DATE NOT NULL,
 	"is_closed" BOOLEAN NOT NULL DEFAULT true,
@@ -226,7 +228,7 @@ CREATE TABLE IF NOT EXISTS "Base_Location" (
 	-- 地點/活動/餐廳名稱
 	"name" VARCHAR(250) NOT NULL,
 	-- 分類: event, restaurant, exhibit, spot
-	"type" VARCHAR(50) NOT NULL,
+	"target" TARGET_TYPE NOT NULL,
 	-- PostGIS WGS84 經緯度座標
 	"geom" GEOMETRY(POINT, 4326) NOT NULL,
 	"created_at" TIMESTAMP DEFAULT now(),
@@ -236,7 +238,7 @@ CREATE TABLE IF NOT EXISTS "Base_Location" (
 
 COMMENT ON COLUMN "Base_Location"."id" IS '共通主鍵';
 COMMENT ON COLUMN "Base_Location"."name" IS '地點/活動/餐廳名稱';
-COMMENT ON COLUMN "Base_Location"."type" IS '分類: event, restaurant, exhibit, spot';
+COMMENT ON COLUMN "Base_Location"."target" IS '分類: event, restaurant, exhibit, spot';
 COMMENT ON COLUMN "Base_Location"."geom" IS 'PostGIS WGS84 經緯度座標';
 
 
@@ -246,7 +248,7 @@ CREATE TABLE IF NOT EXISTS "Assignment" (
 	-- 員工 ID
 	"employee_id" UUID NOT NULL,
 	-- 工作業務類型: RESTAURANT, EXHIBITION, EVENT, TOUR
-	"target" TARGET_TYPE(30) NOT NULL,
+	"target" TARGET_TYPE NOT NULL,
 	-- 對應各個業務表的 id
 	"target_id" UUID NOT NULL,
 	"role" ROLE_TYPE NOT NULL,
@@ -285,7 +287,7 @@ CREATE TABLE IF NOT EXISTS "Qr_Code" (
 	"id" UUID NOT NULL,
 	"code" VARCHAR(50) NOT NULL UNIQUE,
 	-- EXHIBITION, RESTAURANT, EVENT, COLLECTION, LOCATION
-	"target" TARGET_TYPE(30) NOT NULL,
+	"target" TARGET_TYPE NOT NULL,
 	-- 對應各個表底下的 id
 	"target_id" UUID NOT NULL,
 	-- 累計掃描次數，可以用來做熱門度分析
@@ -318,6 +320,7 @@ CREATE TABLE IF NOT EXISTS "Exhibition" (
 	"id" UUID NOT NULL,
 	-- 關聯到 Base_Location
 	"location_id" UUID NOT NULL,
+	"Attractions_id" UUID NOT NULL,
 	"image_url" VARCHAR(150),
 	"status" STATUS_TYPE NOT NULL,
 	"start_date" DATE NOT NULL,
@@ -351,8 +354,8 @@ CREATE TABLE IF NOT EXISTS "Exhibit_Translations" (
 	"title" VARCHAR(100) NOT NULL,
 	"video_url" VARCHAR(150),
 	"audio_url" VARCHAR(150),
-	"language_code" LANGUAGE_TYPE(150) NOT NULL,
-	"description" TEXT(150) NOT NULL,
+	"language_code" LANGUAGE_TYPE NOT NULL,
+	"description" TEXT NOT NULL,
 	PRIMARY KEY("id")
 );
 
@@ -396,7 +399,7 @@ CREATE TABLE IF NOT EXISTS "Itinerary_Item" (
 	-- 關聯到主表的 ID
 	"group_id" UUID NOT NULL,
 	-- 目標類型: RESTAURANT, EXHIBITION, EVENT, COLLECTION, TOUR_SCHEDULE
-	"target" TARGET_TYPE(30) NOT NULL,
+	"target" TARGET_TYPE NOT NULL,
 	-- 目標實體的 UUID
 	"target_id" UUID NOT NULL,
 	-- 預計開始時間
@@ -424,7 +427,7 @@ CREATE TABLE IF NOT EXISTS "Tour_Schedule" (
 	-- 解說行程唯一識別碼
 	"id" UUID NOT NULL,
 	-- 解說行程唯一識別碼
-	"item_id" UUID(30) NOT NULL,
+	"item_id" UUID NOT NULL,
 	-- 主要負責導覽的員工 ID
 	"employee_id" UUID NOT NULL,
 	-- 本人確認
@@ -444,7 +447,7 @@ CREATE TABLE IF NOT EXISTS "AI_Chat_Message" (
 	-- 屬於哪次對話
 	"session_id" UUID NOT NULL,
 	-- user / assistant
-	"sender" SENDER_TYPE(20) NOT NULL,
+	"sender" SENDER_TYPE NOT NULL,
 	-- 聊天的對話文字內容
 	"content" TEXT NOT NULL,
 	"created_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -486,7 +489,7 @@ CREATE TABLE IF NOT EXISTS "AI_Itinerary_Draft" (
 	"id" UUID NOT NULL,
 	"session_id" UUID NOT NULL,
 	-- RESTAURANT, EXHIBITION, EVENT, COLLECTION
-	"target" TARGET_TYPE(30) NOT NULL,
+	"target" TARGET_TYPE NOT NULL,
 	"target_id" UUID NOT NULL,
 	-- AI 建議的開始時間
 	"suggested_start_time" TIME,
@@ -535,6 +538,7 @@ CREATE TABLE IF NOT EXISTS "Collection_Themes" (
 	"id" UUID NOT NULL,
 	-- 關聯到 Base_Location
 	"location_id" UUID NOT NULL,
+	"Attractions_id" UUID NOT NULL,
 	"status" STATUS_TYPE NOT NULL,
 	"start_date" DATE NOT NULL,
 	"end_date" DATE NOT NULL,
@@ -567,7 +571,7 @@ CREATE TABLE IF NOT EXISTS "Recommended_Itinerary_Item" (
 	"id" UUID NOT NULL,
 	"recommended_group_id" UUID NOT NULL,
 	-- 目標類型: COLLECTION, EXHIBITION, RESTAURANT, EVENT
-	"target" TARGET_TYPE(30) NOT NULL,
+	"target" TARGET_TYPE NOT NULL,
 	-- 目標實體的 UUID
 	"target_id" UUID NOT NULL,
 	-- 建議在此景點停留的分鐘數
@@ -648,6 +652,18 @@ COMMENT ON COLUMN "Itinerary_Item_Review"."comment" IS '文字評論內容，選
 COMMENT ON COLUMN "Itinerary_Item_Review"."is_visible" IS '是否顯示（若有不當言論，管理員可隱藏）';
 
 ALTER TABLE "Attractions_Translations"
+ADD FOREIGN KEY("Attractions_id") REFERENCES "Attractions"("id")
+ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE "Event"
+ADD FOREIGN KEY("Attractions_id") REFERENCES "Attractions"("id")
+ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE "Collection_Themes"
+ADD FOREIGN KEY("Attractions_id") REFERENCES "Attractions"("id")
+ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE "Restaurant"
+ADD FOREIGN KEY("Attractions_id") REFERENCES "Attractions"("id")
+ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE "Exhibition"
 ADD FOREIGN KEY("Attractions_id") REFERENCES "Attractions"("id")
 ON UPDATE NO ACTION ON DELETE NO ACTION;
 ALTER TABLE "Restaurant_Translations"
