@@ -292,7 +292,8 @@ CREATE TABLE IF NOT EXISTS "Qr_Code" (
 	"target_id" UUID NOT NULL,
 	-- 累計掃描次數，可以用來做熱門度分析
 	"scan_count" INT NOT NULL DEFAULT 0,
-	"updated_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
+	"created_at" TIMESTAMP NOT NULL DEFAULT now(),
+	"updated_at" TIMESTAMP NOT NULL DEFAULT now(),
 	PRIMARY KEY("id")
 );
 
@@ -379,7 +380,7 @@ CREATE TABLE IF NOT EXISTS "Itinerary_Group" (
 	"is_accessible_required" BOOLEAN NOT NULL,
 	-- 行程狀態
 	"status" ITINERARY_STATUS NOT NULL,
-	"created_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
+	"created_at" TIMESTAMP NOT NULL DEFAULT now(),
 	PRIMARY KEY("id")
 );
 
@@ -450,7 +451,7 @@ CREATE TABLE IF NOT EXISTS "AI_Chat_Message" (
 	"sender" SENDER_TYPE NOT NULL,
 	-- 聊天的對話文字內容
 	"content" TEXT NOT NULL,
-	"created_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
+	"created_at" TIMESTAMP NOT NULL DEFAULT now(),
 	PRIMARY KEY("id")
 );
 
@@ -464,7 +465,7 @@ CREATE TABLE IF NOT EXISTS "AI_Chat_Session" (
 	"id" UUID NOT NULL,
 	-- 哪位遊客在聊天
 	"Visiter_id" UUID NOT NULL,
-	"created_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
+	"created_at" TIMESTAMP NOT NULL DEFAULT now(),
 	-- 使用者最後有沒有把這次推薦變成正式行程
 	"is_converted_to_itinerary" BOOLEAN NOT NULL DEFAULT false,
 	PRIMARY KEY("id")
@@ -478,7 +479,7 @@ COMMENT ON COLUMN "AI_Chat_Session"."is_converted_to_itinerary" IS '使用者最
 CREATE TABLE IF NOT EXISTS "Visiter_AI_Preference" (
 	"Visiter_id" UUID NOT NULL,
 	"preference_tags" JSONB NOT NULL DEFAULT '{}',
-	"updated_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
+	"updated_at" TIMESTAMP NOT NULL DEFAULT now(),
 	PRIMARY KEY("Visiter_id")
 );
 
@@ -616,6 +617,7 @@ CREATE TABLE IF NOT EXISTS "Recommended_Itinerary_Group" (
 	-- 範本封面圖，例如：親子遊的溫馨照片
 	"image_url" VARCHAR(150),
 	"created_at" TIMESTAMP NOT NULL DEFAULT now(),
+	"updated_at" TIMESTAMP NOT NULL DEFAULT now(),
 	PRIMARY KEY("id")
 );
 
@@ -638,8 +640,8 @@ CREATE TABLE IF NOT EXISTS "Itinerary_Item_Review" (
 	"comment" TEXT,
 	-- 是否顯示（若有不當言論，管理員可隱藏）
 	"is_visible" BOOLEAN NOT NULL DEFAULT true,
-	"created_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
-	"updated_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
+	"created_at" TIMESTAMP NOT NULL DEFAULT now(),
+	"updated_at" TIMESTAMP NOT NULL DEFAULT now(),
 	PRIMARY KEY("id")
 );
 
@@ -747,3 +749,26 @@ ON UPDATE NO ACTION ON DELETE NO ACTION;
 ALTER TABLE "Visiter"
 ADD FOREIGN KEY("id") REFERENCES "Itinerary_Item_Review"("Visiter_id")
 ON UPDATE NO ACTION ON DELETE NO ACTION;
+-- 修正推薦行程項目的 target_id（UUID 錯誤）
+-- 這些更新語句應該在所有資料匯入後執行
+DO $$
+BEGIN
+    -- 只有在這些記錄存在時才更新（避免重複執行錯誤）
+    IF EXISTS (SELECT 1 FROM "Recommended_Itinerary_Item" WHERE id = '7f2698d3-bd49-4bf9-9c4d-b6d16645c6c7') THEN
+        UPDATE "Recommended_Itinerary_Item"
+        SET target_id = '9da51fd6-f5bf-4c2b-a8c9-ca5de5d687b7'
+        WHERE id = '7f2698d3-bd49-4bf9-9c4d-b6d16645c6c7';
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM "Recommended_Itinerary_Item" WHERE id = '1c409025-e2e5-4c19-be27-268bf6d96e71') THEN
+        UPDATE "Recommended_Itinerary_Item"
+        SET target_id = 'fe3fc8e8-83cb-42b3-9242-adefa1c15138'
+        WHERE id = '1c409025-e2e5-4c19-be27-268bf6d96e71';
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM "Recommended_Itinerary_Item" WHERE id = 'f6c511e9-f01b-4013-b182-efb5cc61fe1a') THEN
+        UPDATE "Recommended_Itinerary_Item"
+        SET target_id = '63a01ed5-2b70-45c7-811f-377f6290659b'
+        WHERE id = 'f6c511e9-f01b-4013-b182-efb5cc61fe1a';
+    END IF;
+END $$;

@@ -1,0 +1,14 @@
+-- INSERT statements for table: Recommended_Itinerary_Group
+-- Generated from: Recommended_Itinerary_Group.csv
+-- Generated at: 2026-08-29 02:24:21
+
+INSERT INTO "Recommended_Itinerary_Group" ("id", "estimated_duration_minutes", "image_url", "created_at", "updated_at") VALUES ('6f7689f5-26cc-424e-bf16-a20d7063bac6', 300, '/images/themes/religion.jpg', '2026/8/24 05:16', '2026/8/24 05:16');
+INSERT INTO "Recommended_Itinerary_Group" ("id", "estimated_duration_minutes", "image_url", "created_at", "updated_at") VALUES ('b7d42a19-5781-4878-aa34-46333a3480f4', 400, '/images/themes/romantic.jpg', '2026/8/24 05:16', '2026/8/24 05:16');
+INSERT INTO "Recommended_Itinerary_Group" ("id", "estimated_duration_minutes", "image_url", "created_at", "updated_at") VALUES ('2710e9b8-589e-4c01-b9c9-215caef97054', 500, '/images/themes/treasure.jpg', '2026/8/24 05:16', '2026/8/24 05:16');
+INSERT INTO "Recommended_Itinerary_Group" ("id", "estimated_duration_minutes", "image_url", "created_at", "updated_at") VALUES ('86252480-d939-4802-ae9e-02909e5e542a', 300, '/images/themes/family.jpg', '2026/8/24 05:16', '2026/8/24 05:16');
+INSERT INTO "Recommended_Itinerary_Group" ("id", "estimated_duration_minutes", "image_url", "created_at", "updated_at") VALUES ('6c45c46e-9289-4a8a-9d66-0c8f461d01f8', 400, '/images/themes/art.jpg', '2026/8/24 05:16', '2026/8/24 05:16');
+INSERT INTO "Recommended_Itinerary_Group" ("id", "estimated_duration_minutes", "image_url", "created_at", "updated_at") VALUES ('2346c79a-36ae-4351-8339-39abbd701ad2', 500, '/images/themes/food.jpg', '2026/8/24 05:16', '2026/8/24 05:16');
+INSERT INTO "Recommended_Itinerary_Group" ("id", "estimated_duration_minutes", "image_url", "created_at", "updated_at") VALUES ('affddccc-eb1a-4d9d-bd51-c65297b16954', 300, '/images/themes/photograph.jpg', '2026/8/24 05:16', '2026/8/24 05:16');
+INSERT INTO "Recommended_Itinerary_Group" ("id", "estimated_duration_minutes", "image_url", "created_at", "updated_at") VALUES ('7f5d8a38-4496-4084-a33e-0c65b1ce6f1d', 400, '/images/themes/nature.jpg', '2026/8/24 05:16', '2026/8/24 05:16');
+
+-- Total: 8 rows
