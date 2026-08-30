@@ -1,1 +1,2 @@
-id,location_id,Attractions_id,image_url,status,start_date,end_date,price
+id,location_id,Attractions_id,image_url,status,start_date,end_date,price,type
+,,,,,2026/7/18,2026/11/22,0,special

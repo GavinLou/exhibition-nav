@@ -1,138 +1,180 @@
 'use client';
 
 import { useState } from 'react';
-import { LayoutDashboard, Building2, Landmark, ShoppingBag, Settings } from 'lucide-react';
-import type { StepNumber, ItineraryItem, LanguageType } from '@/types/kiosk';
 import Step1SelectTheme from '@/components/kiosk/Step1SelectTheme';
-import Step2ViewRoute from '@/components/kiosk/Step2ViewRoute';
-import Step3Search from '@/components/kiosk/Step3Search';
-import Step4Confirm from '@/components/kiosk/Step4Confirm';
-import LeftNavigation from '@/components/kiosk/LeftNavigation';
-import ItineraryPanel from '@/components/kiosk/ItineraryPanel';
-import TopBar from '@/components/kiosk/TopBar';
+import Step2AddAttractions from '@/components/kiosk/Step2AddAttractions';
+import Step3ConfirmItinerary from '@/components/kiosk/Step3ConfirmItinerary';
+import '@/styles/design-tokens.css';
+
+type StepNumber = 1 | 2 | 3;
+
+interface ItineraryItem {
+  id: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  estimatedDuration: number;
+  order: number;
+}
+
+interface BookingInfo {
+  groupName: string;
+  numberOfPeople: number;
+  needsNarrator: boolean;
+  hasDisabilities: boolean;
+  startTime: string;
+}
 
 export default function KioskPage() {
   const [currentStep, setCurrentStep] = useState<StepNumber>(1);
-  const [language, setLanguage] = useState<LanguageType>('zh_TW');
-  const [isAccessible, setIsAccessible] = useState(false);
-  const [selectedThemeId, setSelectedThemeId] = useState<string | null>(null);
-  const [itineraryItems, setItineraryItems] = useState<ItineraryItem[]>([]);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const [showQRCode, setShowQRCode] = useState(false);
+  const [selectedThemeId, setSelectedThemeId] = useState<string>('');
+  const [selectedThemeTitle, setSelectedThemeTitle] = useState<string>('');
+  const [itinerary, setItinerary] = useState<ItineraryItem[]>([]);
 
-  // 切換步驟（帶淡入淡出動畫）
-  const goToStep = (step: StepNumber) => {
-    setIsTransitioning(true);
-    setTimeout(() => {
-      setCurrentStep(step);
-      setIsTransitioning(false);
-    }, 500); // 0.5s 淡出時間
-  };
-
-  // 處理主題選擇
-  const handleThemeSelect = (themeId: string, items: ItineraryItem[]) => {
+  // Step 1 -> Step 2
+  const handleSelectTheme = (themeId: string, themeTitle: string) => {
     setSelectedThemeId(themeId);
-    setItineraryItems(items);
+    setSelectedThemeTitle(themeTitle);
   };
 
-  // 處理行程項目更新
-  const handleItemsChange = (items: ItineraryItem[]) => {
-    setItineraryItems(items);
+  const handleStep1Next = () => {
+    setCurrentStep(2);
   };
 
-  // 處理新增景點
-  const handleAddItem = (item: ItineraryItem) => {
-    setItineraryItems([...itineraryItems, { ...item, sequenceOrder: itineraryItems.length + 1 }]);
+  // Step 2 -> Step 3
+  const handleStep2Next = (selectedItinerary: ItineraryItem[]) => {
+    setItinerary(selectedItinerary);
+    setCurrentStep(3);
   };
 
-  // 處理輸出行程（顯示 QR Code）
-  const handleExportItinerary = () => {
-    setShowQRCode(true);
+  const handleStep2Back = () => {
+    setCurrentStep(1);
+  };
+
+  // Step 3 -> Complete
+  const handleStep3Confirm = (bookingInfo: BookingInfo) => {
+    console.log('預約資訊:', bookingInfo);
+    console.log('行程:', itinerary);
+
+    // 這裡可以：
+    // 1. 發送到後端 API 儲存預約
+    // 2. 生成 QR Code
+    // 3. 顯示完成頁面
+
+    alert('預約成功！\n\n團體/姓名：' + bookingInfo.groupName + '\n人數：' + bookingInfo.numberOfPeople);
+
+    // 重置回第一步
+    setCurrentStep(1);
+    setSelectedThemeId('');
+    setSelectedThemeTitle('');
+    setItinerary([]);
+  };
+
+  const handleStep3Back = () => {
+    setCurrentStep(2);
   };
 
   return (
     <div className="relative w-screen h-screen overflow-hidden">
-      {/* 背景圖片 + 漸層遮罩 */}
-      <div className="absolute inset-0 bg-overlay">
-        <img
-          src="/images/kiosk/pic_A12-00224_10.jpg"
-          alt="Background"
-          className="w-full h-full object-cover"
+      {/* Step 1: 選擇主題 */}
+      <div
+        className={`absolute inset-0 transition-opacity duration-500 ${
+          currentStep === 1 ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        <Step1SelectTheme
+          onSelectTheme={handleSelectTheme}
+          onNext={handleStep1Next}
         />
       </div>
 
-      {/* 頂部 Logo 和控制 */}
-      <TopBar
-        language={language}
-        isAccessible={isAccessible}
-        onLanguageChange={setLanguage}
-        onAccessibleChange={setIsAccessible}
-      />
-
-      {/* 左側步驟導航 */}
-      <LeftNavigation currentStep={currentStep} onStepChange={goToStep} />
-
-      {/* 中間內容區域 - 增加間距 */}
-      <div className="absolute left-[144px] top-[173px] w-[1200px] h-[774px]">
-        {/* Step 1 */}
-        <div
-          className={`absolute inset-0 transition-opacity duration-500 ${
-            currentStep === 1 ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-          }`}
-        >
-          <Step1SelectTheme
-            onSelectTheme={handleThemeSelect}
-            onNext={() => goToStep(2)}
-            selectedThemeId={selectedThemeId}
+      {/* Step 2: 新增景點 */}
+      <div
+        className={`absolute inset-0 transition-opacity duration-500 ${
+          currentStep === 2 ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        {selectedThemeId && (
+          <Step2AddAttractions
+            themeId={selectedThemeId}
+            themeTitle={selectedThemeTitle}
+            onNext={handleStep2Next}
+            onBack={handleStep2Back}
           />
-        </div>
-
-        {/* Step 2 */}
-        <div
-          className={`absolute inset-0 transition-opacity duration-500 ${
-            currentStep === 2 ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-          }`}
-        >
-          <Step2ViewRoute
-            items={itineraryItems}
-            onNext={() => goToStep(3)}
-          />
-        </div>
-
-        {/* Step 3 */}
-        <div
-          className={`absolute inset-0 transition-opacity duration-500 ${
-            currentStep === 3 ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-          }`}
-        >
-          <Step3Search
-            onAddItem={handleAddItem}
-            onNext={() => goToStep(4)}
-          />
-        </div>
-
-        {/* Step 4 */}
-        <div
-          className={`absolute inset-0 transition-opacity duration-500 ${
-            currentStep === 4 ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-          }`}
-        >
-          <Step4Confirm
-            items={itineraryItems}
-            showQRCode={showQRCode}
-            onCloseQRCode={() => setShowQRCode(false)}
-          />
-        </div>
+        )}
       </div>
 
-      {/* 右側行程面板 - 向右移動增加間距 */}
-      <ItineraryPanel
-        items={itineraryItems}
-        currentStep={currentStep}
-        onItemsChange={handleItemsChange}
-        onNext={() => goToStep(Math.min(4, currentStep + 1) as StepNumber)}
-        onExport={handleExportItinerary}
-      />
+      {/* Step 3: 確認行程 */}
+      <div
+        className={`absolute inset-0 transition-opacity duration-500 ${
+          currentStep === 3 ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        <Step3ConfirmItinerary
+          itinerary={itinerary}
+          onBack={handleStep3Back}
+          onConfirm={handleStep3Confirm}
+        />
+      </div>
+
+      {/* 步驟指示器 - 往左移動 */}
+      <div
+        className="absolute top-8 right-32 z-20 flex gap-3"
+        style={{
+          backgroundColor: 'var(--color-bg-card)',
+          backdropFilter: 'blur(20px)',
+          padding: 'var(--spacing-4)',
+          borderRadius: 'var(--radius-xl)',
+          boxShadow: 'var(--shadow-lg)',
+        }}
+      >
+        {[1, 2, 3].map((step) => (
+          <div
+            key={step}
+            className="flex items-center gap-2"
+          >
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all"
+              style={{
+                backgroundColor:
+                  currentStep === step
+                    ? 'var(--color-primary-gold)'
+                    : currentStep > step
+                    ? 'var(--color-secondary-sage)'
+                    : 'var(--color-secondary-mist)',
+                color: currentStep >= step ? 'white' : 'var(--color-text-secondary)',
+              }}
+            >
+              {currentStep > step ? '✓' : step}
+            </div>
+            <span
+              className="font-semibold"
+              style={{
+                fontFamily: 'var(--font-secondary)',
+                color:
+                  currentStep === step
+                    ? 'var(--color-text-primary)'
+                    : 'var(--color-text-secondary)',
+              }}
+            >
+              {step === 1 && '選擇主題'}
+              {step === 2 && '新增景點'}
+              {step === 3 && '確認行程'}
+            </span>
+            {step < 3 && (
+              <div
+                className="w-8 h-0.5 mx-2"
+                style={{
+                  backgroundColor:
+                    currentStep > step
+                      ? 'var(--color-secondary-sage)'
+                      : 'var(--color-secondary-mist)',
+                }}
+              />
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

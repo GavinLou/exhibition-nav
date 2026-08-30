@@ -11,6 +11,24 @@ CREATE TYPE "role_type" AS ENUM (
 	'Guest'
 );
 
+CREATE TYPE "exhibition_type" AS ENUM (
+	'online', 
+	'special', 
+	'permanent'
+);
+
+CREATE TYPE "collection_themes_type" AS ENUM (
+	'permanent', 
+	'curated_selection', 
+	'modern'
+);
+
+CREATE TYPE "event_type" AS ENUM (
+	'enduring', 
+	'single_session', 
+	'year'
+);
+
 CREATE TYPE "language_type" AS ENUM (
 	'zh_TW',
 	'en',
@@ -128,6 +146,7 @@ CREATE TABLE IF NOT EXISTS "Event" (
 	"location_id" UUID NOT NULL,
 	"Attractions_id" UUID NOT NULL,
 	"status" STATUS_TYPE NOT NULL,
+	"type" EVENT_TYPE NOT NULL,
 	"start_date" DATE NOT NULL,
 	"end_date" DATE NOT NULL,
 	-- 活動總長度(分鐘)，例如: 90
@@ -324,6 +343,7 @@ CREATE TABLE IF NOT EXISTS "Exhibition" (
 	"Attractions_id" UUID NOT NULL,
 	"image_url" VARCHAR(150),
 	"status" STATUS_TYPE NOT NULL,
+	"type" EXHIBITION_TYPE NOT NULL,
 	"start_date" DATE NOT NULL,
 	"end_date" DATE NOT NULL,
 	-- 報名費用，0 代表免費
@@ -334,6 +354,7 @@ CREATE TABLE IF NOT EXISTS "Exhibition" (
 
 COMMENT ON COLUMN "Exhibition"."location_id" IS '關聯到 Base_Location';
 COMMENT ON COLUMN "Exhibition"."price" IS '報名費用，0 代表免費';
+COMMENT ON COLUMN "Exhibition"."type" IS '展覽類型';
 
 
 CREATE TABLE IF NOT EXISTS "Exhibit" (
@@ -541,6 +562,7 @@ CREATE TABLE IF NOT EXISTS "Collection_Themes" (
 	"location_id" UUID NOT NULL,
 	"Attractions_id" UUID NOT NULL,
 	"status" STATUS_TYPE NOT NULL,
+	"type" COLLECTION_THEMES_TYPE NOT NULL,
 	"start_date" DATE NOT NULL,
 	"end_date" DATE NOT NULL,
 	"image_url" VARCHAR(150),

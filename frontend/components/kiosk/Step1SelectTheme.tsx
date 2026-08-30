@@ -1,28 +1,30 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { RecommendedItinerary, ItineraryItem } from '@/types/kiosk';
+import type { RecommendedItinerary } from '@/types/kiosk';
+import CircularGallery from '@/components/CircularGallery';
+import LanguageSwitcher from './LanguageSwitcher';
+import '@/styles/design-tokens.css';
 
 interface Step1SelectThemeProps {
-  onSelectTheme: (themeId: string, items: ItineraryItem[]) => void;
+  onSelectTheme: (themeId: string, themeTitle: string) => void;
   onNext: () => void;
-  selectedThemeId: string | null;
 }
 
 export default function Step1SelectTheme({
   onSelectTheme,
   onNext,
-  selectedThemeId,
 }: Step1SelectThemeProps) {
   const [themes, setThemes] = useState<RecommendedItinerary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedTheme, setSelectedTheme] = useState<RecommendedItinerary | null>(null);
+  const [isAnimatingOut, setIsAnimatingOut] = useState(false);
+  const [showGallery, setShowGallery] = useState(true);
 
   useEffect(() => {
     fetch('/api/recommended-itineraries')
       .then((res) => res.json())
       .then((data) => {
-        console.log('Fetched themes:', data);
-        // 確保 data 是陣列
         if (Array.isArray(data)) {
           setThemes(data);
         } else {
@@ -38,80 +40,395 @@ export default function Step1SelectTheme({
       });
   }, []);
 
-  const handleThemeClick = async (themeId: string) => {
-    try {
-      console.log('Fetching theme details for:', themeId);
-      const res = await fetch(`/api/recommended-itineraries/${themeId}`);
-      const data = await res.json();
-      console.log('Theme details response:', data);
-      console.log('Items count:', data.items?.length);
-      onSelectTheme(themeId, data.items || []);
-
-      // 自動進入下一步
+  const handleThemeClick = (index: number) => {
+    if (themes[index]) {
+      setShowGallery(false);
       setTimeout(() => {
-        onNext();
-      }, 300);
-    } catch (error) {
-      console.error('Failed to fetch theme details:', error);
+        setSelectedTheme(themes[index]);
+      }, 100);
     }
   };
 
+  const handleConfirmTheme = () => {
+    if (selectedTheme) {
+      onSelectTheme(selectedTheme.id, selectedTheme.title);
+      onNext();
+    }
+  };
+
+  const handleBack = () => {
+    setIsAnimatingOut(true);
+    setTimeout(() => {
+      setSelectedTheme(null);
+      setIsAnimatingOut(false);
+      setTimeout(() => {
+        setShowGallery(true);
+      }, 100);
+    }, 600);
+  };
+
+  // 準備 CircularGallery 需要的資料格式
+  const galleryItems = themes.map((theme) => ({
+    image: theme.imageUrl,
+    text: theme.title,
+  }));
+
   return (
-    <div className="glass w-full h-full rounded-[32px] relative overflow-hidden bg-white/60 backdrop-blur-xl">
-      {/* 背景 */}
-      <div className="absolute inset-0 bg-white/10 rounded-[20px]" />
+    <div className="w-full h-full relative overflow-hidden">
+      {/* 背景圖層 */}
+      <div
+        className="absolute inset-0 bg-cover bg-center"
+        style={{
+          backgroundImage: 'url(/images/kiosk/pic_A12-00224_10.jpg)',
+          filter: 'grayscale(20%) blur(0.5px)',
+          opacity: 0.35,
+        }}
+      />
 
-      {/* 標題 */}
-      <h1 className="absolute left-12 top-12 text-white text-4xl font-bold">
-        熱門主題行程
-      </h1>
+      {/* 半透明覆蓋層 - 更透明 */}
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundColor: 'var(--color-bg-primary)',
+          opacity: 0.2,
+        }}
+      />
 
-      {/* 主題卡片網格 */}
-      <div className="absolute left-12 top-32 right-12 bottom-12 overflow-y-auto">
+      {/* 左上角 LOGO */}
+      <div
+        className="absolute top-8 left-8 z-30"
+        style={{
+          width: '500px',
+          height: '150px',
+          padding: 'var(--spacing-4)',
+        }}
+      >
+        <img
+          src="/images/kiosk/home01.png"
+          alt="佛光山佛陀紀念館"
+          className="w-full h-full object-contain"
+          onError={(e) => {
+            e.currentTarget.style.display = 'none';
+          }}
+        />
+      </div>
+
+      {/* 右上角語言切換器 */}
+      <div className="absolute top-30 right-32 z-30">
+        <LanguageSwitcher />
+      </div>
+
+      {/* 內容區 */}
+      <div className="relative z-10 w-full h-full flex items-center justify-center">
         {loading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-white text-xl">載入中...</div>
+          <div className="text-2xl" style={{ color: 'var(--color-text-secondary)' }}>
+            載入中...
           </div>
         ) : (
-          <div className="grid grid-cols-4 gap-x-12 gap-y-12">
-            {themes.map((theme) => (
-              <button
-                key={theme.id}
-                onClick={() => handleThemeClick(theme.id)}
-                className={`group relative transition-all ${
-                  selectedThemeId === theme.id
-                    ? 'ring-4 ring-white/50'
-                    : 'hover:scale-105'
+          <>
+            {/* 未選擇狀態：3D 圓形畫廊 */}
+            {!selectedTheme && showGallery && (
+              <div className="w-full h-full flex flex-col items-center justify-center pt-32 animate-gallery-appear">
+                {/* 標題區域 - 往下移動 */}
+                <div className="mb-12">
+                  
+
+                  <h1
+                    className="text-6xl font-bold mb-3 text-center"
+                    style={{
+                      fontFamily: 'var(--font-primary)',
+                      background: 'linear-gradient(135deg, var(--color-text-primary), var(--color-primary-gold))',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      letterSpacing: '0.05em',
+                    }}
+                  >
+                    選擇主題行程 
+                  </h1>
+                  <h4
+                    className="text-6xl font-bold mb-3 text-center"
+                    style={{
+                      fontFamily: 'var(--font-primary)',
+                      background: 'linear-gradient(135deg, var(--color-text-primary), var(--color-primary-gold))',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      letterSpacing: '0.05em',
+                    }}
+                  >
+                    點擊主題卡片，開始您的文化之旅
+                  </h4>
+                </div>
+
+                {/* 3D Circular Gallery - 全寬，更扁 */}
+                <div className="w-full flex-1 px-12" style={{ maxHeight: '350px' }}>
+                  <CircularGallery
+                    items={galleryItems}
+                    bend={0.5}
+                    textColor="var(--color-primary-gold)"
+                    borderRadius={0.08}
+                    font="bold 30px Noto Serif TC"
+                    fontUrl="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&display=swap"
+                    scrollSpeed={2.0}
+                    scrollEase={0.05}
+                    onItemClick={handleThemeClick}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* 選擇狀態：左側圖片 + 右側介紹 - 往中間靠攏 */}
+            {selectedTheme && (
+              <div
+                className={`w-full h-full flex items-center justify-center gap-8 px-24 ${
+                  isAnimatingOut ? 'animate-fade-out-reverse' : 'animate-fade-in'
                 }`}
               >
-                <div className="glass rounded-[20px] p-6 h-full flex flex-col gap-2">
-                  {/* 封面圖 */}
-                  <div className="w-full aspect-[4/3] rounded-lg overflow-hidden bg-white/30">
+                {/* 左側：選中的圖片 - 往中間 */}
+                <div
+                  className={`flex-shrink-0 ${
+                    isAnimatingOut ? 'animate-slide-out-left' : 'animate-slide-in-left'
+                  }`}
+                  style={{ width: '450px' }}
+                >
+                  <div
+                    className="relative overflow-hidden"
+                    style={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                      backdropFilter: 'blur(20px)',
+                      borderRadius: 'var(--radius-xl)',
+                      boxShadow: 'var(--shadow-xl)',
+                      border: '4px solid var(--color-primary-gold)',
+                    }}
+                  >
                     <img
-                      src={theme.imageUrl}
-                      alt={theme.title}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.src = '/images/themes/placeholder.jpg';
-                      }}
+                      src={selectedTheme.imageUrl}
+                      alt={selectedTheme.title}
+                      className="w-full aspect-[5/3] object-cover"
                     />
-                  </div>
-
-                  {/* 標題和描述 */}
-                  <div className="flex flex-col items-center text-center gap-0.5">
-                    <h3 className="text-white text-xl font-medium">
-                      {theme.title}
-                    </h3>
-                    <p className="text-white/75 text-lg">
-                      {theme.description}
-                    </p>
+                    <div
+                      className="p-6"
+                      style={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                      }}
+                    >
+                      <h3
+                        className="text-3xl font-bold text-center"
+                        style={{
+                          fontFamily: 'var(--font-primary)',
+                          color: 'var(--color-primary-gold)',
+                        }}
+                      >
+                        {selectedTheme.title}
+                      </h3>
+                    </div>
                   </div>
                 </div>
-              </button>
-            ))}
-          </div>
+
+                {/* 右側：介紹內容 - 固定高度 + scrollbar */}
+                <div
+                  className={`flex-shrink-0 flex flex-col ${
+                    isAnimatingOut ? 'animate-slide-out-right' : 'animate-slide-in-right'
+                  }`}
+                  style={{
+                    width: '600px',
+                    height: '750px',
+                    backgroundColor: 'var(--color-bg-card)',
+                    backdropFilter: 'blur(20px)',
+                    borderRadius: 'var(--radius-xl)',
+                    boxShadow: 'var(--shadow-xl)',
+                    padding: 'var(--spacing-8)',
+                  }}
+                >
+                  <h2
+                    className="text-5xl font-bold mb-6 text-center"
+                    style={{
+                      fontFamily: 'var(--font-primary)',
+                      color: 'var(--color-text-primary)',
+                    }}
+                  >
+                    {selectedTheme.title}
+                  </h2>
+
+                  {/* 可滾動的文字區域 */}
+                  <div
+                    className="flex-1 overflow-y-auto mb-6 pr-4"
+                    style={{
+                      scrollbarWidth: 'thin',
+                      scrollbarColor: 'var(--color-primary-gold) rgba(255,255,255,0.1)',
+                    }}
+                  >
+                    <p
+                      className="text-xl leading-relaxed"
+                      style={{
+                        fontFamily: 'var(--font-secondary)',
+                        color: 'var(--color-text-secondary)',
+                        lineHeight: 'var(--leading-relaxed)',
+                      }}
+                    >
+                      {selectedTheme.description || '探索佛陀紀念館的精彩之旅，體驗文化與藝術的完美融合。這個主題將帶您領略獨特的文化魅力，感受歷史與現代的交織。'}
+                    </p>
+                  </div>
+
+                  {/* 按鈕組 */}
+                  <div className="flex gap-6">
+                    <button
+                      onClick={handleBack}
+                      className="flex-1 py-6 rounded-2xl text-2xl font-semibold transition-all hover:scale-105"
+                      style={{
+                        fontFamily: 'var(--font-secondary)',
+                        backgroundColor: 'transparent',
+                        color: 'var(--color-text-secondary)',
+                        border: '3px solid var(--color-secondary-mist)',
+                        transitionDuration: 'var(--duration-base)',
+                      }}
+                    >
+                      返回
+                    </button>
+                    <button
+                      onClick={handleConfirmTheme}
+                      className="flex-1 py-6 rounded-2xl text-2xl font-semibold transition-all hover:scale-105"
+                      style={{
+                        fontFamily: 'var(--font-secondary)',
+                        backgroundColor: 'var(--color-primary-gold)',
+                        color: 'white',
+                        boxShadow: 'var(--shadow-lg)',
+                        transitionDuration: 'var(--duration-base)',
+                        transitionTimingFunction: 'var(--ease-out-back)',
+                      }}
+                    >
+                      確認主題
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
+
+      <style jsx>{`
+        /* 畫廊出現動畫 */
+        @keyframes gallery-appear {
+          from {
+            opacity: 0;
+            transform: scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        .animate-gallery-appear {
+          animation: gallery-appear 0.6s var(--ease-out-expo) forwards;
+        }
+
+        @keyframes slide-in-left {
+          from {
+            transform: translateX(-80px);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+
+        .animate-slide-in-left {
+          animation: slide-in-left 0.6s var(--ease-out-expo) forwards;
+        }
+
+        @keyframes slide-out-left {
+          from {
+            transform: translateX(0);
+            opacity: 1;
+          }
+          to {
+            transform: translateX(-80px);
+            opacity: 0;
+          }
+        }
+
+        .animate-slide-out-left {
+          animation: slide-out-left 0.6s var(--ease-out-expo) forwards;
+        }
+
+        @keyframes slide-in-right {
+          from {
+            transform: translateX(80px);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+
+        .animate-slide-in-right {
+          animation: slide-in-right 0.6s var(--ease-out-expo) forwards;
+        }
+
+        @keyframes slide-out-right {
+          from {
+            transform: translateX(0);
+            opacity: 1;
+          }
+          to {
+            transform: translateX(80px);
+            opacity: 0;
+          }
+        }
+
+        .animate-slide-out-right {
+          animation: slide-out-right 0.6s var(--ease-out-expo) forwards;
+        }
+
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+
+        .animate-fade-in {
+          animation: fade-in 0.4s ease-out;
+        }
+
+        @keyframes fade-out-reverse {
+          from {
+            opacity: 1;
+          }
+          to {
+            opacity: 0;
+          }
+        }
+
+        .animate-fade-out-reverse {
+          animation: fade-out-reverse 0.4s ease-out;
+        }
+
+        /* 自訂 scrollbar 樣式 */
+        div::-webkit-scrollbar {
+          width: 8px;
+        }
+
+        div::-webkit-scrollbar-track {
+          background: rgba(255, 255, 255, 0.1);
+          border-radius: 4px;
+        }
+
+        div::-webkit-scrollbar-thumb {
+          background: var(--color-primary-gold);
+          border-radius: 4px;
+        }
+
+        div::-webkit-scrollbar-thumb:hover {
+          background: var(--color-primary-gold);
+          opacity: 0.8;
+        }
+      `}</style>
     </div>
   );
 }
