@@ -201,12 +201,6 @@ export default function Step2AddAttractions({
                   boxShadow: 'var(--shadow-lg)',
                 }}
               />
-              <div
-                className="absolute right-8 top-1/2 transform -translate-y-1/2 text-3xl pointer-events-none"
-                style={{ color: 'var(--color-primary-gold)' }}
-              >
-                🔍
-              </div>
             </div>
           </div>
 
