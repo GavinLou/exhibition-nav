@@ -4,9 +4,12 @@ from app.schemas.attractions import (
     AttractionResponse,
     ItineraryRequest,
     ItineraryResponse,
-    RouteResponse
+    RouteResponse,
+    OptimizeRouteRequest,
+    OptimizeRouteResponse
 )
 from app.services import attractions as attractions_service
+from app.services import tsp_solver
 from typing import List
 
 router = APIRouter()
@@ -106,6 +109,57 @@ def calculate_itinerary(request: ItineraryRequest):
 
         return ItineraryResponse(
             attractions=attractions,
+            total_distance_m=total_distance,
+            total_time_minutes=total_time,
+            route_geojson=route_geojson
+        )
+
+
+@router.post("/itinerary/optimize", response_model=OptimizeRouteResponse)
+def optimize_route(request: OptimizeRouteRequest):
+    """
+    優化行程順序
+    使用 TSP 貪婪演算法計算訪問所有景點的最短路徑
+    """
+    with engine.connect() as conn:
+        # 使用 TSP solver 計算最優路徑
+        sorted_ids, total_distance, total_time = tsp_solver.calculate_route_with_distances(
+            conn,
+            request.attraction_ids
+        )
+
+        # 獲取排序後的景點資訊
+        sorted_attractions = []
+        for attr_id in sorted_ids:
+            attraction = attractions_service.get_attraction_by_id(conn, attr_id)
+            if attraction:
+                sorted_attractions.append(attraction)
+
+        # 計算路徑的 GeoJSON（用於地圖顯示）
+        features = []
+        for i in range(len(sorted_attractions) - 1):
+            start = sorted_attractions[i]
+            end = sorted_attractions[i + 1]
+
+            route = attractions_service.calculate_route_between_points(
+                conn,
+                start.latitude,
+                start.longitude,
+                end.latitude,
+                end.longitude
+            )
+
+            if route:
+                features.append(route.geojson)
+
+        route_geojson = {
+            "type": "FeatureCollection",
+            "features": features
+        }
+
+        return OptimizeRouteResponse(
+            sorted_attraction_ids=sorted_ids,
+            attractions=sorted_attractions,
             total_distance_m=total_distance,
             total_time_minutes=total_time,
             route_geojson=route_geojson

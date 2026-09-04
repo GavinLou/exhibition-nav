@@ -1,13 +1,13 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, MouseEvent } from "react";
 
 type GlassCardProps = {
   children: ReactNode;
   className?: string;
   variant?: "default" | "subtle" | "gradient";
   hover?: boolean;
-  onClick?: () => void;
+  onClick?: (e?: MouseEvent<HTMLDivElement>) => void;
 };
 
 export function GlassCard({

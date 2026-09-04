@@ -30,10 +30,9 @@ export function ThemeCard({ theme, isActive, onSelect }: ThemeCardProps) {
           className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
           style={{ backgroundColor: `${theme.color}20` }}
         >
-          <IconComponent
-            className="w-6 h-6"
-            style={{ color: theme.color }}
-          />
+          <div style={{ color: theme.color }}>
+            <IconComponent className="w-6 h-6" />
+          </div>
         </div>
 
         <div className="flex-1 min-w-0">

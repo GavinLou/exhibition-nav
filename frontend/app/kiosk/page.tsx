@@ -14,7 +14,18 @@ interface ItineraryItem {
   description: string;
   imageUrl: string;
   estimatedDuration: number;
+  customDuration?: number;
+  needsNarrator?: boolean;
   order: number;
+  rating: number;
+  latitude: number;
+  longitude: number;
+  translations: {
+    zh_TW: {
+      title: string;
+      description: string;
+    };
+  };
 }
 
 interface BookingInfo {
@@ -42,7 +53,7 @@ export default function KioskPage() {
   };
 
   // Step 2 -> Step 3
-  const handleStep2Next = (selectedItinerary: ItineraryItem[]) => {
+  const handleStep2Next = (selectedItinerary: any[]) => {
     setItinerary(selectedItinerary);
     setCurrentStep(3);
   };

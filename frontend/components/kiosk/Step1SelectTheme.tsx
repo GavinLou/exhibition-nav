@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { RecommendedItinerary } from '@/types/kiosk';
 import CircularGallery from '@/components/CircularGallery';
-import LanguageSwitcher from './LanguageSwitcher';
+import KioskLayout from './KioskLayout';
 import '@/styles/design-tokens.css';
 
 interface Step1SelectThemeProps {
@@ -74,50 +74,7 @@ export default function Step1SelectTheme({
   }));
 
   return (
-    <div className="w-full h-full relative overflow-hidden">
-      {/* 背景圖層 */}
-      <div
-        className="absolute inset-0 bg-cover bg-center"
-        style={{
-          backgroundImage: 'url(/images/kiosk/pic_A12-00224_10.jpg)',
-          filter: 'grayscale(20%) blur(0.5px)',
-          opacity: 0.35,
-        }}
-      />
-
-      {/* 半透明覆蓋層 - 更透明 */}
-      <div
-        className="absolute inset-0"
-        style={{
-          backgroundColor: 'var(--color-bg-primary)',
-          opacity: 0.2,
-        }}
-      />
-
-      {/* 左上角 LOGO */}
-      <div
-        className="absolute top-8 left-8 z-30"
-        style={{
-          width: '500px',
-          height: '150px',
-          padding: 'var(--spacing-4)',
-        }}
-      >
-        <img
-          src="/images/kiosk/home01.png"
-          alt="佛光山佛陀紀念館"
-          className="w-full h-full object-contain"
-          onError={(e) => {
-            e.currentTarget.style.display = 'none';
-          }}
-        />
-      </div>
-
-      {/* 右上角語言切換器 */}
-      <div className="absolute top-30 right-32 z-30">
-        <LanguageSwitcher />
-      </div>
-
+    <KioskLayout>
       {/* 內容區 */}
       <div className="relative z-10 w-full h-full flex items-center justify-center">
         {loading ? (
@@ -429,6 +386,6 @@ export default function Step1SelectTheme({
           opacity: 0.8;
         }
       `}</style>
-    </div>
+    </KioskLayout>
   );
 }

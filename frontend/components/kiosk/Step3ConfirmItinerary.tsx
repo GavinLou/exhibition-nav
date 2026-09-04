@@ -1,7 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import '@/styles/design-tokens.css';
+import KioskLayout from './KioskLayout';
+import RouteMap from '@/components/maps/RouteMap';
+import DraggableItineraryItem from './DraggableItineraryItem';
+import TextInput from '@/components/ui/TextInput';
 
 interface ItineraryItem {
   id: string;
@@ -9,7 +13,18 @@ interface ItineraryItem {
   description: string;
   imageUrl: string;
   estimatedDuration: number;
+  customDuration?: number;
+  needsNarrator?: boolean;
   order: number;
+  rating: number;
+  latitude: number;
+  longitude: number;
+  translations: {
+    zh_TW: {
+      title: string;
+      description: string;
+    };
+  };
 }
 
 interface BookingInfo {
@@ -31,7 +46,13 @@ export default function Step3ConfirmItinerary({
   onBack,
   onConfirm,
 }: Step3ConfirmItineraryProps) {
-  const [itinerary, setItinerary] = useState(initialItinerary);
+  const [itinerary, setItinerary] = useState<ItineraryItem[]>([]);
+  const [routeGeoJSON, setRouteGeoJSON] = useState<any>(null);
+  const [totalDistance, setTotalDistance] = useState(0);
+  const [totalWalkTime, setTotalWalkTime] = useState(0);
+  const [isOptimizing, setIsOptimizing] = useState(true);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
   const [bookingInfo, setBookingInfo] = useState<BookingInfo>({
     groupName: '',
     numberOfPeople: 1,
@@ -40,26 +61,140 @@ export default function Step3ConfirmItinerary({
     startTime: '',
   });
 
-  const handleMoveUp = (index: number) => {
-    if (index === 0) return;
-    const newItinerary = [...itinerary];
-    [newItinerary[index - 1], newItinerary[index]] = [newItinerary[index], newItinerary[index - 1]];
-    // 更新 order
-    newItinerary.forEach((item, i) => {
-      item.order = i + 1;
-    });
-    setItinerary(newItinerary);
+  // 初始化：計算最短路徑排序
+  useEffect(() => {
+    if (initialItinerary.length === 0) return;
+
+    const optimizeRoute = async () => {
+      try {
+        const response = await fetch('/api/itinerary/optimize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            attraction_ids: initialItinerary.map((item) => item.id),
+          }),
+        });
+
+        if (!response.ok) throw new Error('Failed to optimize route');
+
+        const data = await response.json();
+
+        console.log('[Step3] Optimize data:', data);
+        console.log('[Step3] Initial itinerary:', initialItinerary);
+
+        // 重新排序行程，保留 customDuration 和 needsNarrator
+        const sorted = data.sorted_attraction_ids.map((id: string, index: number) => {
+          const item = initialItinerary.find((i) => i.id === id);
+          if (!item) return null;
+
+          // 保留 Step2 設置的 customDuration 和 needsNarrator
+          // 注意：customDuration 可能是 undefined，這樣才能在後續修改時正確顯示 estimatedDuration
+          return {
+            ...item,
+            order: index + 1,
+            customDuration: item.customDuration, // 不要自動填入 estimatedDuration
+            needsNarrator: item.needsNarrator || false,
+          };
+        }).filter(Boolean) as ItineraryItem[];
+
+        console.log('[Step3] Sorted itinerary:', sorted);
+
+        setItinerary(sorted);
+        setRouteGeoJSON(data.route_geojson);
+        setTotalDistance(data.total_distance_m);
+        setTotalWalkTime(data.total_time_minutes);
+      } catch (error) {
+        console.error('Error optimizing route:', error);
+        // 如果優化失敗，使用原始順序
+        setItinerary(initialItinerary.map((item, index) => ({ ...item, order: index + 1 })));
+      } finally {
+        setIsOptimizing(false);
+      }
+    };
+
+    optimizeRoute();
+  }, [initialItinerary]);
+
+  // 拖放處理
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
   };
 
-  const handleMoveDown = (index: number) => {
-    if (index === itinerary.length - 1) return;
+  const handleDragOver = (index: number) => {
+    if (draggedIndex === null || draggedIndex === index) return;
+
     const newItinerary = [...itinerary];
-    [newItinerary[index], newItinerary[index + 1]] = [newItinerary[index + 1], newItinerary[index]];
+    const draggedItem = newItinerary[draggedIndex];
+
+    // 移除拖動的項目
+    newItinerary.splice(draggedIndex, 1);
+    // 插入到新位置
+    newItinerary.splice(index, 0, draggedItem);
+
+    // 更新 order
+    newItinerary.forEach((item, i) => {
+      item.order = i + 1;
+    });
+
+    setItinerary(newItinerary);
+    setDraggedIndex(index);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    // 重新計算路線
+    recalculateRoute();
+  };
+
+  // 重新計算路線（順序改變後）
+  const recalculateRoute = async () => {
+    if (itinerary.length === 0) return;
+
+    try {
+      const response = await fetch('/api/itinerary/calculate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          attraction_ids: itinerary.map((item) => item.id),
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to calculate route');
+
+      const data = await response.json();
+      setRouteGeoJSON(data.route_geojson);
+      setTotalDistance(data.total_distance_m);
+      setTotalWalkTime(data.total_time_minutes);
+    } catch (error) {
+      console.error('Error recalculating route:', error);
+    }
+  };
+
+  const handleDurationChange = (id: string, duration: number) => {
+    setItinerary(
+      itinerary.map((item) =>
+        item.id === id ? { ...item, customDuration: duration } : item
+      )
+    );
+  };
+
+  const handleToggleNarrator = (id: string) => {
+    setItinerary(
+      itinerary.map((item) =>
+        item.id === id ? { ...item, needsNarrator: !item.needsNarrator } : item
+      )
+    );
+  };
+
+  const handleRemoveAttraction = (id: string) => {
+    const newItinerary = itinerary.filter((item) => item.id !== id);
     // 更新 order
     newItinerary.forEach((item, i) => {
       item.order = i + 1;
     });
     setItinerary(newItinerary);
+    // 重新計算路線
+    setTimeout(recalculateRoute, 100);
   };
 
   const handleConfirm = () => {
@@ -68,29 +203,38 @@ export default function Step3ConfirmItinerary({
     }
   };
 
-  const totalDuration = itinerary.reduce((sum, item) => sum + item.estimatedDuration, 0);
+  const totalDuration = itinerary.reduce(
+    (sum, item) => sum + (item.customDuration || item.estimatedDuration),
+    0
+  );
+
+  if (isOptimizing) {
+    return (
+      <KioskLayout>
+        <div className="relative z-10 w-full h-full flex items-center justify-center">
+          <div className="text-center">
+            <div
+              className="text-3xl font-bold mb-4"
+              style={{
+                fontFamily: 'var(--font-primary)',
+                color: 'var(--color-primary-gold)',
+              }}
+            >
+              正在規劃最佳路線...
+            </div>
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-t-transparent mx-auto"
+              style={{ borderColor: 'var(--color-primary-gold)', borderTopColor: 'transparent' }}
+            />
+          </div>
+        </div>
+      </KioskLayout>
+    );
+  }
 
   return (
-    <div className="w-full h-full relative overflow-hidden">
-      {/* 背景 */}
-      <div
-        className="absolute inset-0 bg-cover bg-center"
-        style={{
-          backgroundImage: 'url(/images/kiosk/pic_A12-00224_10.jpg)',
-          filter: 'grayscale(20%) blur(0.5px)',
-          opacity: 0.35,
-        }}
-      />
-      <div
-        className="absolute inset-0"
-        style={{
-          backgroundColor: 'var(--color-bg-primary)',
-          opacity: 0.7,
-        }}
-      />
-
+    <KioskLayout>
       {/* 內容區 */}
-      <div className="relative z-10 w-full h-full flex gap-6 p-12">
+      <div className="relative z-10 w-full h-4/5 top-1/6 flex gap-6 p-12">
         {/* 左側：地圖 */}
         <div className="flex-1 flex flex-col">
           {/* 標題 */}
@@ -102,7 +246,7 @@ export default function Step3ConfirmItinerary({
                 color: 'var(--color-text-primary)',
               }}
             >
-              確認行程
+              確認行程路線
             </h1>
             <p
               className="text-lg"
@@ -111,34 +255,57 @@ export default function Step3ConfirmItinerary({
                 color: 'var(--color-text-secondary)',
               }}
             >
-              查看您的行程路線並填寫預約資訊
+              路線已自動優化為最短路徑，您可以拖動調整順序
             </p>
           </div>
 
-          {/* 地圖區域 */}
-          <div
-            className="flex-1 rounded-2xl overflow-hidden flex items-center justify-center"
-            style={{
-              backgroundColor: 'var(--color-bg-card)',
-              backdropFilter: 'blur(20px)',
-              boxShadow: 'var(--shadow-lg)',
-            }}
-          >
-            {/* 這裡可以放入實際的地圖組件 */}
-            <div className="relative w-full h-full">
-              <img
-                src="/images/kiosk/map.png"
-                alt="地圖"
-                className="w-full h-full object-contain"
+          {/* 地圖（統計資訊已整合在地圖左下角） */}
+          <div className="flex-1 min-h-0">
+            {routeGeoJSON && itinerary.length > 0 ? (
+              <RouteMap
+                routeGeoJSON={routeGeoJSON}
+                attractions={itinerary}
+                totalDistance={totalDistance}
+                totalWalkTime={totalWalkTime}
+                totalDuration={totalDuration}
               />
-              {/* 路線標記可以疊加在這裡 */}
-            </div>
+            ) : (
+              <div
+                className="w-full h-full flex items-center justify-center rounded-2xl"
+                style={{
+                  backgroundColor: 'var(--color-bg-card)',
+                  backdropFilter: 'blur(20px)',
+                  boxShadow: 'var(--shadow-lg)',
+                }}
+              >
+                <div className="text-center">
+                  <div
+                    className="text-xl mb-2"
+                    style={{
+                      color: 'var(--color-text-secondary)',
+                      fontFamily: 'var(--font-secondary)',
+                    }}
+                  >
+                    {!routeGeoJSON ? '路線資料載入中...' : '請選擇景點'}
+                  </div>
+                  <div
+                    className="text-sm"
+                    style={{
+                      color: 'var(--color-text-secondary)',
+                      fontFamily: 'var(--font-secondary)',
+                    }}
+                  >
+                    (行程數: {itinerary.length}, 路線: {routeGeoJSON ? '✓' : '✗'})
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* 右側：行程詳情與預約資訊 */}
+        {/* 右側：行程列表與預約資訊 */}
         <div
-          className="w-[480px] flex flex-col"
+          className="w-[500px] flex flex-col"
           style={{
             backgroundColor: 'var(--color-bg-card)',
             backdropFilter: 'blur(20px)',
@@ -156,80 +323,45 @@ export default function Step3ConfirmItinerary({
                 color: 'var(--color-text-primary)',
               }}
             >
-              行程景點 ({itinerary.length})
+              我的行程 ({itinerary.length} 個景點)
             </h2>
 
-            <div className="space-y-2 mb-4 max-h-64 overflow-y-auto">
+            <div
+              className="space-y-2 mb-4 overflow-y-auto pr-2"
+              style={{
+                maxHeight: '400px',
+                scrollbarWidth: 'thin',
+                scrollbarColor: 'var(--color-primary-gold) rgba(255,255,255,0.1)',
+              }}
+            >
               {itinerary.map((item, index) => (
-                <div
+                <DraggableItineraryItem
                   key={item.id}
-                  className="flex items-center gap-3 p-3 rounded-lg"
-                  style={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-                  }}
-                >
-                  <div
-                    className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm"
-                    style={{
-                      backgroundColor: 'var(--color-primary-gold)',
-                      color: 'white',
-                    }}
-                  >
-                    {item.order}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4
-                      className="font-semibold text-sm truncate"
-                      style={{
-                        fontFamily: 'var(--font-secondary)',
-                        color: 'var(--color-text-primary)',
-                      }}
-                    >
-                      {item.title}
-                    </h4>
-                    <p
-                      className="text-xs"
-                      style={{ color: 'var(--color-text-secondary)' }}
-                    >
-                      {item.estimatedDuration} 分鐘
-                    </p>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <button
-                      onClick={() => handleMoveUp(index)}
-                      disabled={index === 0}
-                      className="w-6 h-6 rounded flex items-center justify-center hover:bg-gray-200 transition-colors"
-                      style={{
-                        opacity: index === 0 ? 0.3 : 1,
-                        color: 'var(--color-text-secondary)',
-                      }}
-                    >
-                      ↑
-                    </button>
-                    <button
-                      onClick={() => handleMoveDown(index)}
-                      disabled={index === itinerary.length - 1}
-                      className="w-6 h-6 rounded flex items-center justify-center hover:bg-gray-200 transition-colors"
-                      style={{
-                        opacity: index === itinerary.length - 1 ? 0.3 : 1,
-                        color: 'var(--color-text-secondary)',
-                      }}
-                    >
-                      ↓
-                    </button>
-                  </div>
-                </div>
+                  item={item}
+                  index={index}
+                  onDurationChange={handleDurationChange}
+                  onToggleNarrator={handleToggleNarrator}
+                  onRemove={handleRemoveAttraction}
+                  onDragStart={handleDragStart}
+                  onDragOver={handleDragOver}
+                  onDragEnd={handleDragEnd}
+                />
               ))}
             </div>
 
             <div
               className="p-3 rounded-lg text-center"
               style={{
-                backgroundColor: 'rgba(201, 168, 118, 0.1)',
+                backgroundColor: 'rgba(201, 168, 118, 0.15)',
                 color: 'var(--color-primary-gold)',
+                fontFamily: 'var(--font-secondary)',
+                fontWeight: 'bold',
               }}
             >
-              預估總時間：{totalDuration} 分鐘
+              預估總時間：{totalDuration + Math.round(totalWalkTime)} 分鐘
+              <span style={{ fontSize: '0.9em', opacity: 0.8 }}>
+                {' '}（參觀 {totalDuration} + 步行 {Math.round(totalWalkTime)}）
+              </span>
             </div>
           </div>
 
@@ -246,28 +378,22 @@ export default function Step3ConfirmItinerary({
             </h3>
 
             <div className="space-y-4">
-              {/* 姓名 */}
+              {/* 團體/姓名 */}
               <div>
                 <label
                   className="block text-sm font-semibold mb-2"
-                  style={{ color: 'var(--color-text-primary)' }}
-                >
-                  團體/姓名 *
-                </label>
-                <input
-                  type="text"
-                  value={bookingInfo.groupName}
-                  onChange={(e) =>
-                    setBookingInfo({ ...bookingInfo, groupName: e.target.value })
-                  }
-                  className="w-full px-4 py-3 rounded-lg"
                   style={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                    border: '2px solid var(--color-secondary-mist)',
                     color: 'var(--color-text-primary)',
                     fontFamily: 'var(--font-secondary)',
                   }}
+                >
+                  團體/姓名 *
+                </label>
+                <TextInput
+                  value={bookingInfo.groupName}
+                  onChange={(val) => setBookingInfo({ ...bookingInfo, groupName: val })}
                   placeholder="請輸入團體名稱或姓名"
+                  size="medium"
                 />
               </div>
 
@@ -275,27 +401,23 @@ export default function Step3ConfirmItinerary({
               <div>
                 <label
                   className="block text-sm font-semibold mb-2"
-                  style={{ color: 'var(--color-text-primary)' }}
-                >
-                  人數 *
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={bookingInfo.numberOfPeople}
-                  onChange={(e) =>
-                    setBookingInfo({
-                      ...bookingInfo,
-                      numberOfPeople: parseInt(e.target.value) || 1,
-                    })
-                  }
-                  className="w-full px-4 py-3 rounded-lg"
                   style={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                    border: '2px solid var(--color-secondary-mist)',
                     color: 'var(--color-text-primary)',
                     fontFamily: 'var(--font-secondary)',
                   }}
+                >
+                  人數 *
+                </label>
+                <TextInput
+                  type="number"
+                  value={bookingInfo.numberOfPeople.toString()}
+                  onChange={(val) =>
+                    setBookingInfo({
+                      ...bookingInfo,
+                      numberOfPeople: parseInt(val) || 1,
+                    })
+                  }
+                  size="medium"
                 />
               </div>
 
@@ -303,7 +425,10 @@ export default function Step3ConfirmItinerary({
               <div>
                 <label
                   className="block text-sm font-semibold mb-2"
-                  style={{ color: 'var(--color-text-primary)' }}
+                  style={{
+                    color: 'var(--color-text-primary)',
+                    fontFamily: 'var(--font-secondary)',
+                  }}
                 >
                   預計開始時間
                 </label>
@@ -315,58 +440,12 @@ export default function Step3ConfirmItinerary({
                   }
                   className="w-full px-4 py-3 rounded-lg"
                   style={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                    border: '2px solid var(--color-secondary-mist)',
+                    backgroundColor: 'var(--color-bg-card)',
+                    border: '2px solid var(--color-primary-gold)',
                     color: 'var(--color-text-primary)',
                     fontFamily: 'var(--font-secondary)',
                   }}
                 />
-              </div>
-
-              {/* 是否需要導覽員 */}
-              <div>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={bookingInfo.needsNarrator}
-                    onChange={(e) =>
-                      setBookingInfo({ ...bookingInfo, needsNarrator: e.target.checked })
-                    }
-                    className="w-5 h-5"
-                  />
-                  <span
-                    className="font-semibold"
-                    style={{
-                      fontFamily: 'var(--font-secondary)',
-                      color: 'var(--color-text-primary)',
-                    }}
-                  >
-                    需要導覽員服務
-                  </span>
-                </label>
-              </div>
-
-              {/* 是否有身障需求 */}
-              <div>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={bookingInfo.hasDisabilities}
-                    onChange={(e) =>
-                      setBookingInfo({ ...bookingInfo, hasDisabilities: e.target.checked })
-                    }
-                    className="w-5 h-5"
-                  />
-                  <span
-                    className="font-semibold"
-                    style={{
-                      fontFamily: 'var(--font-secondary)',
-                      color: 'var(--color-text-primary)',
-                    }}
-                  >
-                    有無障礙需求
-                  </span>
-                </label>
               </div>
             </div>
           </div>
@@ -375,7 +454,7 @@ export default function Step3ConfirmItinerary({
           <div className="flex gap-3">
             <button
               onClick={onBack}
-              className="flex-1 py-4 rounded-xl text-lg font-semibold transition-all"
+              className="flex-1 py-4 rounded-xl text-lg font-semibold transition-all hover:scale-105"
               style={{
                 fontFamily: 'var(--font-secondary)',
                 backgroundColor: 'transparent',
@@ -397,8 +476,11 @@ export default function Step3ConfirmItinerary({
                     : 'var(--color-secondary-mist)',
                 color: 'white',
                 boxShadow: 'var(--shadow-md)',
-                transitionDuration: 'var(--duration-base)',
                 opacity: bookingInfo.groupName && bookingInfo.numberOfPeople >= 1 ? 1 : 0.5,
+                cursor:
+                  bookingInfo.groupName && bookingInfo.numberOfPeople >= 1
+                    ? 'pointer'
+                    : 'not-allowed',
               }}
             >
               確定預約
@@ -406,6 +488,6 @@ export default function Step3ConfirmItinerary({
           </div>
         </div>
       </div>
-    </div>
+    </KioskLayout>
   );
 }

@@ -641,14 +641,36 @@ class App {
     if (this.hasMoved) return;
     if (!this.onItemClick || !this.medias || !this.medias[0]) return;
 
-    // 找出當前最接近中心的卡片
-    const itemWidth = this.medias[0].width;
-    const scrollOffset = this.scroll.current;
-    const centerIndex = Math.round(scrollOffset / itemWidth);
+    // 取得點擊位置
+    const clickX = e.clientX;
+    const rect = this.container.getBoundingClientRect();
+    const containerCenterX = rect.left + rect.width / 2;
 
-    // 因為 items 是複製兩次的，所以實際索引是原始陣列長度的一半
+    // 計算點擊位置相對於容器中心的距離（世界座標）
+    const clickOffsetFromCenter = (clickX - containerCenterX) / rect.width * this.viewport.width;
+
+    // 找出點擊位置對應的卡片
+    let clickedMedia: Media | null = null;
+    let minDistance = Infinity;
+
+    for (const media of this.medias) {
+      // 每個卡片的中心位置（考慮到捲動偏移）
+      const mediaCenter = media.plane.position.x;
+      const distance = Math.abs(clickOffsetFromCenter - mediaCenter);
+
+      // 檢查點擊是否在這個卡片的範圍內
+      const halfWidth = media.plane.scale.x / 2;
+      if (distance < halfWidth && distance < minDistance) {
+        minDistance = distance;
+        clickedMedia = media;
+      }
+    }
+
+    if (!clickedMedia) return;
+
+    // 取得原始索引（排除複製的項目）
     const originalLength = this.mediasImages.length / 2;
-    let actualIndex = centerIndex % originalLength;
+    let actualIndex = clickedMedia.index % originalLength;
 
     // 確保索引是正數
     if (actualIndex < 0) {

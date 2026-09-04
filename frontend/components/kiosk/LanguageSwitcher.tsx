@@ -21,11 +21,11 @@ export default function LanguageSwitcher({ onChange }: LanguageSwitcherProps) {
 
   return (
     <div
-      className="flex gap-2 items-center"
+      className="flex gap-4 items-center"
       style={{
         backgroundColor: 'var(--color-bg-card)',
         backdropFilter: 'blur(20px)',
-        padding: 'var(--spacing-3)',
+        padding: 'var(--spacing-4)',
         borderRadius: 'var(--radius-xl)',
         boxShadow: 'var(--shadow-md)',
       }}

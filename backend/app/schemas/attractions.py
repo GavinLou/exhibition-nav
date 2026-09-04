@@ -20,6 +20,8 @@ class AttractionResponse(BaseModel):
     image_url: Optional[str] = None
     latitude: float
     longitude: float
+    rating: float = 0  # 平均評分 (0-5)，從 Itinerary_Item_Review 計算
+    rating_count: int = 0  # 評分數量
     translations: dict[str, AttractionTranslation] = {}  # language_code -> translation
 
 
@@ -52,3 +54,17 @@ class ItineraryResponse(BaseModel):
     total_distance_m: float
     total_time_minutes: float
     route_geojson: dict
+
+
+class OptimizeRouteRequest(BaseModel):
+    """優化路線請求"""
+    attraction_ids: list[str]  # 要優化順序的景點 ID 列表
+
+
+class OptimizeRouteResponse(BaseModel):
+    """優化路線響應"""
+    sorted_attraction_ids: list[str]  # 排序後的景點 ID
+    attractions: list[AttractionResponse]  # 排序後的景點資訊
+    total_distance_m: float  # 總距離（米）
+    total_time_minutes: float  # 總步行時間（分鐘）
+    route_geojson: dict  # 路線的 GeoJSON

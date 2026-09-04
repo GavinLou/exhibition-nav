@@ -39,7 +39,7 @@ export function QRCodeButton({ items, disabled }: QRCodeButtonProps) {
         >
           <GlassCard
             className="p-8 max-w-sm w-full mx-4 animate-fade-in"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => e?.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold gradient-text">掃描 QR Code</h3>

@@ -1,6 +1,7 @@
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
 from app.schemas.attractions import AttractionResponse, AttractionTranslation, RouteResponse, RouteSegment
+from app.services import ratings as ratings_service
 from typing import List, Optional
 import json
 
@@ -37,16 +38,24 @@ def get_all_attractions(conn: Connection) -> List[AttractionResponse]:
     result = conn.execute(query)
     attractions = []
 
+    # 獲取所有景點的評分
+    all_ratings = ratings_service.get_all_attractions_ratings(conn)
+
     for row in result:
         translations_dict = {}
         for trans in row.translations:
             translations_dict[trans['language_code']] = AttractionTranslation(**trans)
 
+        attraction_id = str(row.id)
+        rating_info = all_ratings.get(attraction_id, {'rating': 0, 'count': 0})
+
         attractions.append(AttractionResponse(
-            id=str(row.id),
+            id=attraction_id,
             name=row.name,
             status=row.status,
             image_url=row.image_url,
+            rating=rating_info['rating'],
+            rating_count=rating_info['count'],
             latitude=row.latitude,
             longitude=row.longitude,
             translations=translations_dict
@@ -94,11 +103,16 @@ def get_attraction_by_id(conn: Connection, attraction_id: str) -> Optional[Attra
     for trans in row.translations:
         translations_dict[trans['language_code']] = AttractionTranslation(**trans)
 
+    # 獲取評分
+    avg_rating = ratings_service.get_attraction_average_rating(conn, attraction_id) or 0
+
     return AttractionResponse(
         id=str(row.id),
         name=row.name,
         status=row.status,
         image_url=row.image_url,
+        rating=avg_rating,
+        rating_count=0,  # 可以優化為也查詢評分數量
         latitude=row.latitude,
         longitude=row.longitude,
         translations=translations_dict
@@ -183,7 +197,7 @@ def calculate_route_between_points(
         # 步行速度 4.5 km/h = 75 m/min
         total_time_minutes = total_cost / 75.0
 
-        # 收集所有路径段的坐标
+        # 收集所有路径段的坐标（只保留连续路径，去除重复点）
         all_coordinates = []
         path = []
 
@@ -202,7 +216,19 @@ def calculate_route_between_points(
                 # LineString的坐标是数组
                 if geom_data.get('type') == 'LineString':
                     coords = geom_data['coordinates']
-                    all_coordinates.extend(coords)
+
+                    # 如果是第一个线段，加入所有点
+                    if len(all_coordinates) == 0:
+                        all_coordinates.extend(coords)
+                    else:
+                        # 否则，跳过第一个点（因为它应该等于上一个线段的最后一个点）
+                        # 避免重复点
+                        if len(coords) > 1:
+                            all_coordinates.extend(coords[1:])
+                        elif len(coords) == 1:
+                            # 如果只有一个点，检查是否与最后一个点重复
+                            if all_coordinates[-1] != coords[0]:
+                                all_coordinates.append(coords[0])
 
         # 创建GeoJSON
         geojson = {
@@ -217,6 +243,10 @@ def calculate_route_between_points(
                 "method": "pgrouting"
             }
         }
+
+        print(f"[Route] pgRouting result: {len(all_coordinates)} coordinates, distance={total_cost:.2f}m")
+        if len(all_coordinates) > 0:
+            print(f"[Route] First coord: {all_coordinates[0]}, Last coord: {all_coordinates[-1]}")
 
         return RouteResponse(
             total_cost=total_cost,
