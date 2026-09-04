@@ -76,13 +76,15 @@ def calculate_itinerary(request: ItineraryRequest):
                 route_geojson={
                     "type": "FeatureCollection",
                     "features": []
-                }
+                },
+                segment_walk_times=[]
             )
 
         # 计算每段路径
         total_distance = 0
         total_time = 0
         features = []
+        segment_walk_times = []
 
         for i in range(len(attractions) - 1):
             start = attractions[i]
@@ -100,6 +102,7 @@ def calculate_itinerary(request: ItineraryRequest):
                 total_distance += route.total_cost
                 total_time += route.total_time_minutes
                 features.append(route.geojson)
+                segment_walk_times.append(int(route.total_time_minutes + 0.5))
 
         # 合并所有路径为一个GeoJSON FeatureCollection
         route_geojson = {
@@ -111,7 +114,8 @@ def calculate_itinerary(request: ItineraryRequest):
             attractions=attractions,
             total_distance_m=total_distance,
             total_time_minutes=total_time,
-            route_geojson=route_geojson
+            route_geojson=route_geojson,
+            segment_walk_times=segment_walk_times
         )
 
 
@@ -135,8 +139,9 @@ def optimize_route(request: OptimizeRouteRequest):
             if attraction:
                 sorted_attractions.append(attraction)
 
-        # 計算路徑的 GeoJSON（用於地圖顯示）
+        # 計算路徑的 GeoJSON（用於地圖顯示）和每段走路時間
         features = []
+        segment_walk_times = []
         for i in range(len(sorted_attractions) - 1):
             start = sorted_attractions[i]
             end = sorted_attractions[i + 1]
@@ -151,6 +156,8 @@ def optimize_route(request: OptimizeRouteRequest):
 
             if route:
                 features.append(route.geojson)
+                # 每段的走路時間（分鐘，向上取整）
+                segment_walk_times.append(int(route.total_time_minutes + 0.5))
 
         route_geojson = {
             "type": "FeatureCollection",
@@ -162,5 +169,6 @@ def optimize_route(request: OptimizeRouteRequest):
             attractions=sorted_attractions,
             total_distance_m=total_distance,
             total_time_minutes=total_time,
-            route_geojson=route_geojson
+            route_geojson=route_geojson,
+            segment_walk_times=segment_walk_times
         )

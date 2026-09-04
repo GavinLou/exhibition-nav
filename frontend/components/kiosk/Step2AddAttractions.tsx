@@ -29,6 +29,7 @@ interface ItineraryItem extends Attraction {
 interface Step2AddAttractionsProps {
   themeId: string;
   themeTitle: string;
+  initialItinerary?: ItineraryItem[]; // 從 Step3 回傳的行程
   onNext: (itinerary: ItineraryItem[]) => void;
   onBack: () => void;
 }
@@ -36,12 +37,13 @@ interface Step2AddAttractionsProps {
 export default function Step2AddAttractions({
   themeId,
   themeTitle,
+  initialItinerary,
   onNext,
   onBack,
 }: Step2AddAttractionsProps) {
   const [allAttractions, setAllAttractions] = useState<Attraction[]>([]);
   const [filteredAttractions, setFilteredAttractions] = useState<Attraction[]>([]);
-  const [itinerary, setItinerary] = useState<ItineraryItem[]>([]);
+  const [itinerary, setItinerary] = useState<ItineraryItem[]>(initialItinerary || []);
   const [selectedAttraction, setSelectedAttraction] = useState<Attraction | null>(null);
   const [searchText, setSearchText] = useState('');
   const [loading, setLoading] = useState(true);
@@ -50,6 +52,13 @@ export default function Step2AddAttractions({
     video: boolean;
     audio: boolean;
   }>({ image: false, video: false, audio: false });
+
+  // 當從 Step3 返回時,更新行程
+  useEffect(() => {
+    if (initialItinerary && initialItinerary.length > 0) {
+      setItinerary(initialItinerary);
+    }
+  }, [initialItinerary]);
 
   // 獲取全部景點 + 主題預設行程
   useEffect(() => {
@@ -67,7 +76,8 @@ export default function Step2AddAttractions({
         }
 
         // 將主題的全部景點加入行程，使用正確的參觀時長
-        if (themeData.items && Array.isArray(themeData.items)) {
+        // 但如果已經有 initialItinerary (從 Step3 回傳),則不覆蓋
+        if (themeData.items && Array.isArray(themeData.items) && !initialItinerary) {
           const themeItinerary = themeData.items.map((item: any, index: number) => {
             // 找到對應的景點資料以獲取rating和其他資訊
             const attractionData = attractionsData.find((a: any) => a.id === (item.targetId || item.id));

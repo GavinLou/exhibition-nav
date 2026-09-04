@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # PostgreSQL with PostGIS
+  postgres:
+    container_name: bmc_gis_db
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: GavinLou
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: bmc_navigation
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database/init-scripts:/docker-entrypoint-initdb.d
+    networks:
+      - app-network
+
+  # FastAPI Backend
+  backend:
+    container_name: bmc_backend_api
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://GavinLou:password@postgres:5432/bmc_navigation
+    depends_on:
+      - postgres
+    volumes:
+      - ./backend:/app
+    networks:
+      - app-network
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Next.js Frontend - PRODUCTION MODE
+  frontend:
+    container_name: bmc_nextjs_frontend_prod
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://backend:8000
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  pgdata:

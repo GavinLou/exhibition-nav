@@ -3,6 +3,7 @@
 import { ReactNode } from 'react';
 import '@/styles/design-tokens.css';
 import LanguageSwitcher from './LanguageSwitcher';
+import MobilitySwitcher from './MobilitySwitcher';
 
 interface KioskLayoutProps {
   children: ReactNode;
@@ -51,9 +52,10 @@ export default function KioskLayout({
         />
       </div>
 
-      {/* 右上角語言切換器 */}
+      {/* 右上角切換器 */}
       {showLanguageSwitcher && (
-        <div className="absolute top-30 right-32 z-30">
+        <div className="absolute top-30 right-32 z-30 flex gap-4">
+          <MobilitySwitcher />
           <LanguageSwitcher />
         </div>
       )}

@@ -54,6 +54,7 @@ class ItineraryResponse(BaseModel):
     total_distance_m: float
     total_time_minutes: float
     route_geojson: dict
+    segment_walk_times: list[int] = []  # 每段路線的走路時間（分鐘）
 
 
 class OptimizeRouteRequest(BaseModel):
@@ -68,3 +69,4 @@ class OptimizeRouteResponse(BaseModel):
     total_distance_m: float  # 總距離（米）
     total_time_minutes: float  # 總步行時間（分鐘）
     route_geojson: dict  # 路線的 GeoJSON
+    segment_walk_times: list[int]  # 每段路線的走路時間（分鐘）

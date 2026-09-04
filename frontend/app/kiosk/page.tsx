@@ -63,26 +63,70 @@ export default function KioskPage() {
   };
 
   // Step 3 -> Complete
-  const handleStep3Confirm = (bookingInfo: BookingInfo) => {
+  const handleStep3Confirm = async (bookingInfo: any) => {
     console.log('預約資訊:', bookingInfo);
-    console.log('行程:', itinerary);
 
-    // 這裡可以：
-    // 1. 發送到後端 API 儲存預約
-    // 2. 生成 QR Code
-    // 3. 顯示完成頁面
+    try {
+      // 儲存到資料庫
+      const today = new Date();
+      const visitDate = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
 
-    alert('預約成功！\n\n團體/姓名：' + bookingInfo.groupName + '\n人數：' + bookingInfo.numberOfPeople);
+      const itineraryData = {
+        total_participants: bookingInfo.numberOfPeople,
+        visit_date: visitDate,
+        title: `${selectedThemeTitle}_${bookingInfo.groupName}`,
+        theme_title: selectedThemeTitle,
+        start_hour: bookingInfo.startHour,
+        start_minute: bookingInfo.startMinute,
+        qr_code: bookingInfo.qrCode || '',
+        walk_times: bookingInfo.segmentWalkTimes || [],
+        items: (bookingInfo.itinerary || []).map((item: any, index: number) => ({
+          target_id: item.id,
+          duration: item.customDuration || item.estimatedDuration || 30,
+          sequence_order: index + 1,
+          is_guide: item.needsNarrator || false
+        }))
+      };
 
-    // 重置回第一步
+      console.log('送出資料:', itineraryData);
+
+      const response = await fetch('/api/itinerary/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(itineraryData)
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('預約成功儲存到資料庫:', result);
+      } else {
+        const errorText = await response.text();
+        console.error('儲存失敗:', errorText);
+        alert('儲存失敗: ' + errorText);
+      }
+    } catch (error) {
+      console.error('儲存預約時發生錯誤:', error);
+      alert('儲存預約時發生錯誤: ' + error);
+    }
+
+    // QR Code 已經在 Dialog 中顯示
+    // 不需要 alert，讓用戶看完 QR Code 後自行關閉
+  };
+
+  const handleStep3Back = (updatedItinerary?: ItineraryItem[]) => {
+    // 如果 Step3 有修改行程(拖動順序、修改時間等),更新 state
+    if (updatedItinerary) {
+      setItinerary(updatedItinerary);
+    }
+    setCurrentStep(2);
+  };
+
+  const handleComplete = () => {
+    // 重置所有狀態，回到第一步驟
     setCurrentStep(1);
     setSelectedThemeId('');
     setSelectedThemeTitle('');
     setItinerary([]);
-  };
-
-  const handleStep3Back = () => {
-    setCurrentStep(2);
   };
 
   return (
@@ -109,6 +153,7 @@ export default function KioskPage() {
           <Step2AddAttractions
             themeId={selectedThemeId}
             themeTitle={selectedThemeTitle}
+            initialItinerary={itinerary.length > 0 ? itinerary : undefined}
             onNext={handleStep2Next}
             onBack={handleStep2Back}
           />
@@ -123,8 +168,10 @@ export default function KioskPage() {
       >
         <Step3ConfirmItinerary
           itinerary={itinerary}
+          themeTitle={selectedThemeTitle}
           onBack={handleStep3Back}
           onConfirm={handleStep3Confirm}
+          onComplete={handleComplete}
         />
       </div>
 

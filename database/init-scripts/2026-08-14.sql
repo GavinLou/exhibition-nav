@@ -55,7 +55,8 @@ CREATE TYPE "target_type" AS ENUM (
 	'exhibition',
 	'exhibit',
 	'collection_Themes',
-	'collection'
+	'collection',
+	'itinerary'
 );
 
 CREATE TYPE "sender_type" AS ENUM (

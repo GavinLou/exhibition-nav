@@ -43,6 +43,7 @@ export default function DraggableItineraryItem({
     { value: 45, label: '45分' },
     { value: 60, label: '60分' },
     { value: 90, label: '90分' },
+    { value: 120, label: '120分' },
   ];
 
   return (
@@ -62,7 +63,7 @@ export default function DraggableItineraryItem({
         setIsDragging(false);
         onDragEnd();
       }}
-      className="rounded-lg p-3 flex items-center gap-3 transition-all cursor-move"
+      className="w-19/20 rounded-lg p-3 flex items-center gap-3"
       style={{
         backgroundColor: isDragging
           ? 'rgba(201, 168, 118, 0.2)'
@@ -70,6 +71,8 @@ export default function DraggableItineraryItem({
         minHeight: '80px',
         opacity: isDragging ? 0.5 : 1,
         border: isDragging ? '2px dashed var(--color-primary-gold)' : 'none',
+        marginBottom: '16px',
+        padding: '20px 20px',
       }}
     >
       {/* 拖動手柄 */}
@@ -91,7 +94,7 @@ export default function DraggableItineraryItem({
 
       {/* 左側：順序數字 */}
       <div
-        className="flex-shrink-0 w-10 h-16 rounded-lg flex items-center justify-center font-bold text-lg"
+        className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center font-bold text-lg"
         style={{
           backgroundColor: 'var(--color-primary-gold)',
           color: 'white',
@@ -102,7 +105,7 @@ export default function DraggableItineraryItem({
       </div>
 
       {/* 中間：內容區域 */}
-      <div className="flex-1 min-w-0 flex flex-col gap-2">
+      <div className="flex-1 min-w-0 flex flex-col gap-2 center">
         {/* 上排：名字 + 評分 */}
         <div className="flex items-center gap-2">
           <h4
@@ -124,7 +127,7 @@ export default function DraggableItineraryItem({
         </div>
 
         {/* 下排：時間 + 導覽員 */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-14">
           <CustomSelect
             options={durationOptions}
             value={item.customDuration || item.estimatedDuration}
@@ -153,7 +156,7 @@ export default function DraggableItineraryItem({
       {/* 右側：刪除按鈕 */}
       <button
         onClick={() => onRemove(item.id)}
-        className="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-all hover:scale-110"
+         className="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-all hover:scale-110"
         style={{
           color: 'var(--color-error)',
           backgroundColor: 'rgba(255, 0, 0, 0.1)',

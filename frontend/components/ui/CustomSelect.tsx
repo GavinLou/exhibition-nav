@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import '@/styles/design-tokens.css';
 
 interface SelectOption {
@@ -24,21 +25,44 @@ export default function CustomSelect({
   className = '',
 }: CustomSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
   const selectRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // 計算下拉選單位置
+  useEffect(() => {
+    if (isOpen && selectRef.current) {
+      const rect = selectRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY + 4,
+        left: rect.left + window.scrollX,
+        width: rect.width,
+      });
+    }
+  }, [isOpen]);
 
   // 關閉下拉選單（點擊外部時）
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (selectRef.current && !selectRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      // 檢查點擊是否在選擇器本身或下拉選單內
+      if (
+        selectRef.current &&
+        !selectRef.current.contains(target) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(target)
+      ) {
         setIsOpen(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [isOpen]);
 
   const selectedOption = options.find((opt) => opt.value === value);
 
@@ -92,56 +116,57 @@ export default function CustomSelect({
         </svg>
       </div>
 
-      {/* 選項列表 */}
-      <div
-        style={{
-          position: 'absolute',
-          top: isOpen ? '100%' : '0',
-          left: 0,
-          right: 0,
-          marginTop: '4px',
-          backgroundColor: 'var(--color-bg-card)',
-          backdropFilter: 'blur(10px)',
-          borderRadius: 'var(--radius-md)',
-          border: '2px solid var(--color-primary-gold)',
-          boxShadow: 'var(--shadow-lg)',
-          overflow: 'hidden',
-          opacity: isOpen ? 1 : 0,
-          pointerEvents: isOpen ? 'auto' : 'none',
-          transition: 'opacity 300ms, top 300ms',
-          zIndex: 1000,
-        }}
-      >
-        {options.map((option) => (
+      {/* 選項列表 - 使用 Portal 渲染到 body */}
+      {typeof window !== 'undefined' && isOpen &&
+        createPortal(
           <div
-            key={option.value}
-            onClick={() => handleSelect(option.value)}
-            className="cursor-pointer transition-all"
+            ref={dropdownRef}
             style={{
-              padding: '8px 12px',
-              fontFamily: 'var(--font-secondary)',
-              color: 'var(--color-text-primary)',
-              fontSize: '14px',
-              backgroundColor:
-                option.value === value
-                  ? 'rgba(201, 168, 118, 0.2)'
-                  : 'transparent',
-              display: option.value === value ? 'none' : 'block',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'rgba(201, 168, 118, 0.15)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor =
-                option.value === value
-                  ? 'rgba(201, 168, 118, 0.2)'
-                  : 'transparent';
+              position: 'fixed',
+              top: dropdownPosition.top,
+              left: dropdownPosition.left,
+              width: dropdownPosition.width,
+              backgroundColor: 'var(--color-bg-card)',
+              backdropFilter: 'blur(10px)',
+              borderRadius: 'var(--radius-md)',
+              border: '2px solid var(--color-primary-gold)',
+              boxShadow: 'var(--shadow-lg)',
+              overflow: 'hidden',
+              zIndex: 9999,
             }}
           >
-            {option.label}
-          </div>
-        ))}
-      </div>
+            {options.map((option) => (
+              <div
+                key={option.value}
+                onClick={() => handleSelect(option.value)}
+                className="cursor-pointer transition-all"
+                style={{
+                  padding: '8px 12px',
+                  fontFamily: 'var(--font-secondary)',
+                  color: 'var(--color-text-primary)',
+                  fontSize: '14px',
+                  backgroundColor:
+                    option.value === value
+                      ? 'rgba(201, 168, 118, 0.2)'
+                      : 'transparent',
+                  display: option.value === value ? 'none' : 'block',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(201, 168, 118, 0.15)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor =
+                    option.value === value
+                      ? 'rgba(201, 168, 118, 0.2)'
+                      : 'transparent';
+                }}
+              >
+                {option.label}
+              </div>
+            ))}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

@@ -250,12 +250,14 @@ export default function RouteMap({
       >
         {/* 步行距離 */}
         <div
-          className="p-4 rounded-xl pointer-events-auto"
+          className="p-4 rounded-lg pointer-events-auto"
           style={{
             backgroundColor: 'rgba(255, 255, 255, 0.95)',
             backdropFilter: 'blur(20px)',
             boxShadow: 'var(--shadow-md)',
             minWidth: '160px',
+            paddingLeft: '20px',
+            paddingRight: '20px',
           }}
         >
           <div
@@ -268,24 +270,27 @@ export default function RouteMap({
             步行距離
           </div>
           <div
-            className="text-2xl font-bold"
+            className="text-2xl font-bold flex justify-between items-baseline"
             style={{
               color: '#C9A876',
               fontFamily: 'var(--font-primary)',
             }}
           >
-            {(totalDistance / 1000).toFixed(2)} 公里
+            <span>{(totalDistance / 1000).toFixed(2)}</span>
+            <span className="text-lg">km</span>
           </div>
         </div>
 
         {/* 步行時間 */}
         <div
-          className="p-4 rounded-xl pointer-events-auto"
+          className="p-4 rounded-lg pointer-events-auto"
           style={{
             backgroundColor: 'rgba(255, 255, 255, 0.95)',
             backdropFilter: 'blur(20px)',
             boxShadow: 'var(--shadow-md)',
             minWidth: '160px',
+            paddingLeft: '20px',
+            paddingRight: '20px',
           }}
         >
           <div
@@ -298,24 +303,27 @@ export default function RouteMap({
             步行時間
           </div>
           <div
-            className="text-2xl font-bold"
+            className="text-2xl font-bold flex justify-between items-baseline"
             style={{
               color: '#C9A876',
               fontFamily: 'var(--font-primary)',
             }}
           >
-            {Math.round(totalWalkTime)} 分鐘
+            <span>{Math.round(totalWalkTime)}</span>
+            <span className="text-lg">分鐘</span>
           </div>
         </div>
 
         {/* 參觀時間 */}
         <div
-          className="p-4 rounded-xl pointer-events-auto"
+          className="p-4 rounded-lg pointer-events-auto"
           style={{
             backgroundColor: 'rgba(255, 255, 255, 0.95)',
             backdropFilter: 'blur(20px)',
             boxShadow: 'var(--shadow-md)',
             minWidth: '160px',
+            paddingLeft: '20px',
+            paddingRight: '20px',
           }}
         >
           <div
@@ -328,13 +336,14 @@ export default function RouteMap({
             參觀時間
           </div>
           <div
-            className="text-2xl font-bold"
+            className="text-2xl font-bold flex justify-between items-baseline"
             style={{
               color: '#C9A876',
               fontFamily: 'var(--font-primary)',
             }}
           >
-            {totalDuration} 分鐘
+            <span>{totalDuration}</span>
+            <span className="text-lg">分鐘</span>
           </div>
         </div>
       </div>
