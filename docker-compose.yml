@@ -48,7 +48,7 @@ services:
       # 具名 volume，由 Docker 自己管理實際存放位置(在 Docker 內部)，
       # 不綁定到你電腦上特定的路徑。這是存放「資料庫實際資料」的正確做法，
       # 因為換到別台機器、別的作業系統都不會因為路徑不同而壞掉。
-      - db_data:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
 
       # bind mount：把你專案資料夾裡的 SQL 腳本掛進容器的
       # /docker-entrypoint-initdb.d/ 目錄。
@@ -133,6 +133,8 @@ services:
       # (可能是不同作業系統/架構下裝的) node_modules 蓋過去。
       # 這個寫法是對的，保留。
       - /app/node_modules
+      # 注意：開發環境因為掛載了整個 ./frontend，所以上傳的文件
+      # 會直接存到本機的 frontend/public/uploads 目錄，不需要額外 volume
 
     environment:
       # 注意：這裡是 http://localhost:8000，是給「使用者瀏覽器」呼叫的，
@@ -196,7 +198,7 @@ services:
 # volumes: 宣告上面用到的具名 volume
 # =========================================================
 volumes:
-  db_data:
+  pgdata:
     # 不特別指定 driver，用 Docker 預設的 local driver 即可，
     # 這樣在任何有安裝 Docker 的環境都能正常運作，不受你電腦路徑影響。
   pgadmin_data:
